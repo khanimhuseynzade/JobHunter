@@ -41,6 +41,12 @@ export function inferWorkMode(input: {
 }
 
 export function formatLocation(parts: string[]): string {
-  const unique = [...new Set(parts.map((p) => p.trim()).filter(Boolean))];
+  const unique = [
+    ...new Set(
+      parts
+        .map((part) => (part == null ? "" : String(part)).trim())
+        .filter(Boolean)
+    ),
+  ];
   return unique.join(" · ") || "Unknown";
 }

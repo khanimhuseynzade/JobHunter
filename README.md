@@ -78,7 +78,7 @@ Sync behavior is driven by repo config (not shown in the UI):
 | File | Purpose |
 |------|---------|
 | `config/filters.ts` | Target roles, 30-day recency |
-| `config/boards.ts` | Job boards (No Fluff Jobs, Just Join IT) |
+| `config/boards.ts` | Job boards (No Fluff Jobs, Just Join IT, Bulldogjob, WWR, Jobicy, RemoteOK, EU Remote Jobs) |
 | `config/companies.ts` | Top companies + ATS slugs (Greenhouse/Lever/Ashby) |
 
 Add ATS slugs to `config/companies.ts` as you discover them. Companies without `ats` are skipped by company sync.

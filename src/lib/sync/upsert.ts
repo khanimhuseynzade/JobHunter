@@ -2,6 +2,7 @@ import { and, eq, inArray, lt } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { jobs as jobsTable, syncLogs } from "@/lib/schema";
 import { filters } from "../../../config/filters";
+import { dedupeSyncJobs } from "./dedupe";
 import type { SyncJobInput, SyncResult } from "./types";
 
 function latencyFromPosted(postedDate: string | null): number | null {
@@ -25,8 +26,9 @@ export async function upsertSyncJobs(
   let jobsNew = 0;
   let jobsUpdated = 0;
   const seenKeys: string[] = [];
+  const unique = dedupeSyncJobs(incoming);
 
-  for (const job of incoming) {
+  for (const job of unique) {
     seenKeys.push(job.externalKey);
     const [existing] = await db
       .select({ id: jobsTable.id })
@@ -86,7 +88,7 @@ export async function upsertSyncJobs(
   }
 
   return {
-    jobsFound: incoming.length,
+    jobsFound: unique.length,
     jobsNew,
     jobsUpdated,
   };

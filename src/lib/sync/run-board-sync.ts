@@ -1,15 +1,29 @@
-import { boards } from "../../../config/boards";
-import { fetchJustJoinIt, fetchNoFluffJobs } from "./fetchers/boards";
+import { boards, type BoardProvider } from "../../../config/boards";
+import {
+  fetchBulldogjob,
+  fetchEuRemoteJobs,
+  fetchJobicy,
+  fetchJustJoinIt,
+  fetchNoFluffJobs,
+  fetchRemoteOk,
+  fetchWeWorkRemotely,
+} from "./fetchers/boards";
+import { dedupeSyncJobs } from "./dedupe";
 import { markGlobalStaleJobs, upsertSyncJobs, writeSyncLog } from "./upsert";
 import type { SyncJobInput, SyncResult } from "./types";
 
-function dedupeByKey(jobs: SyncJobInput[]): SyncJobInput[] {
-  const map = new Map<string, SyncJobInput>();
-  for (const job of jobs) {
-    map.set(job.externalKey, job);
-  }
-  return [...map.values()];
-}
+const boardFetchers: Record<
+  BoardProvider,
+  () => Promise<SyncJobInput[]>
+> = {
+  nofluffjobs: fetchNoFluffJobs,
+  justjoinit: fetchJustJoinIt,
+  bulldogjob: fetchBulldogjob,
+  weworkremotely: fetchWeWorkRemotely,
+  jobicy: fetchJobicy,
+  remoteok: fetchRemoteOk,
+  euremotejobs: fetchEuRemoteJobs,
+};
 
 export async function runBoardSync(): Promise<SyncResult> {
   const errors: string[] = [];
@@ -19,10 +33,8 @@ export async function runBoardSync(): Promise<SyncResult> {
     if (!board.enabled) continue;
 
     try {
-      const jobs =
-        board.provider === "nofluffjobs"
-          ? await fetchNoFluffJobs()
-          : await fetchJustJoinIt();
+      const fetcher = boardFetchers[board.provider];
+      const jobs = await fetcher();
       collected.push(...jobs);
     } catch (error) {
       errors.push(
@@ -31,7 +43,7 @@ export async function runBoardSync(): Promise<SyncResult> {
     }
   }
 
-  const unique = dedupeByKey(collected);
+  const unique = dedupeSyncJobs(collected);
   let jobsNew = 0;
   let jobsUpdated = 0;
 

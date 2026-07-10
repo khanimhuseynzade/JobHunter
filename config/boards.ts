@@ -1,4 +1,11 @@
-export type BoardProvider = "nofluffjobs" | "justjoinit";
+export type BoardProvider =
+  | "nofluffjobs"
+  | "justjoinit"
+  | "bulldogjob"
+  | "weworkremotely"
+  | "jobicy"
+  | "remoteok"
+  | "euremotejobs";
 
 export interface BoardConfig {
   id: string;
@@ -19,6 +26,36 @@ export const boards: BoardConfig[] = [
     id: "justjoinit",
     name: "Just Join IT",
     provider: "justjoinit",
-    enabled: false, // API endpoint changed; re-enable when fetcher is updated
+    enabled: true,
+  },
+  {
+    id: "bulldogjob",
+    name: "Bulldogjob",
+    provider: "bulldogjob",
+    enabled: true,
+  },
+  {
+    id: "weworkremotely",
+    name: "We Work Remotely",
+    provider: "weworkremotely",
+    enabled: true,
+  },
+  {
+    id: "jobicy",
+    name: "Jobicy",
+    provider: "jobicy",
+    enabled: true,
+  },
+  {
+    id: "remoteok",
+    name: "RemoteOK",
+    provider: "remoteok",
+    enabled: true,
+  },
+  {
+    id: "euremotejobs",
+    name: "EU Remote Jobs",
+    provider: "euremotejobs",
+    enabled: true,
   },
 ];
