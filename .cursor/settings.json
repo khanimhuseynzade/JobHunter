@@ -1,0 +1,7 @@
+{
+  "plugins": {
+    "sourcegraph-cursor-plugin": {
+      "enabled": true
+    }
+  }
+}

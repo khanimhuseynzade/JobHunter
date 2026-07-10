@@ -1,0 +1,141 @@
+import { and, eq, inArray, lt } from "drizzle-orm";
+import { getDb } from "@/lib/db";
+import { jobs as jobsTable, syncLogs } from "@/lib/schema";
+import { filters } from "../../../config/filters";
+import type { SyncJobInput, SyncResult } from "./types";
+
+function latencyFromPosted(postedDate: string | null): number | null {
+  if (!postedDate) return null;
+  const posted = new Date(postedDate).getTime();
+  if (Number.isNaN(posted)) return null;
+  return Math.max(0, Math.floor((Date.now() - posted) / 86400000));
+}
+
+export async function upsertSyncJobs(
+  searchType: SyncResult["searchType"],
+  sourceName: string,
+  incoming: SyncJobInput[]
+): Promise<Pick<SyncResult, "jobsFound" | "jobsNew" | "jobsUpdated">> {
+  const db = getDb();
+  if (!db) {
+    throw new Error("DATABASE_URL is required for sync");
+  }
+
+  const syncStartedAt = new Date().toISOString();
+  let jobsNew = 0;
+  let jobsUpdated = 0;
+  const seenKeys: string[] = [];
+
+  for (const job of incoming) {
+    seenKeys.push(job.externalKey);
+    const [existing] = await db
+      .select({ id: jobsTable.id })
+      .from(jobsTable)
+      .where(eq(jobsTable.externalKey, job.externalKey))
+      .limit(1);
+
+    if (existing) {
+      await db
+        .update(jobsTable)
+        .set({
+          role: job.role,
+          company: job.company,
+          location: job.location,
+          workMode: job.workMode,
+          postedDate: job.postedDate,
+          latencyDays: job.latencyDays ?? latencyFromPosted(job.postedDate),
+          sourceType: job.sourceType,
+          sourceName: job.sourceName,
+          applyUrl: job.applyUrl,
+          lastSeenAt: syncStartedAt,
+          possiblyClosed: false,
+        })
+        .where(eq(jobsTable.externalKey, job.externalKey));
+      jobsUpdated += 1;
+    } else {
+      await db.insert(jobsTable).values({
+        externalKey: job.externalKey,
+        role: job.role,
+        company: job.company,
+        location: job.location,
+        workMode: job.workMode,
+        postedDate: job.postedDate,
+        latencyDays: job.latencyDays ?? latencyFromPosted(job.postedDate),
+        sourceType: job.sourceType,
+        sourceName: job.sourceName,
+        applyUrl: job.applyUrl,
+        status: null,
+        possiblyClosed: false,
+        firstSeenAt: syncStartedAt,
+        lastSeenAt: syncStartedAt,
+      });
+      jobsNew += 1;
+    }
+  }
+
+  if (seenKeys.length > 0) {
+    await db
+      .update(jobsTable)
+      .set({ possiblyClosed: true })
+      .where(
+        and(
+          eq(jobsTable.sourceName, sourceName),
+          lt(jobsTable.lastSeenAt, syncStartedAt)
+        )
+      );
+  }
+
+  return {
+    jobsFound: incoming.length,
+    jobsNew,
+    jobsUpdated,
+  };
+}
+
+export async function writeSyncLog(result: SyncResult): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+
+  await db.insert(syncLogs).values({
+    searchType: result.searchType,
+    jobsFound: result.jobsFound,
+    jobsNew: result.jobsNew,
+    errors:
+      result.errors.length > 0
+        ? result.errors.join("\n")
+        : null,
+  });
+}
+
+export async function markGlobalStaleJobs(): Promise<number> {
+  const db = getDb();
+  if (!db) return 0;
+
+  const cutoff = new Date(
+    Date.now() - filters.staleAfterDays * 86400000
+  ).toISOString();
+
+  const stale = await db
+    .select({ id: jobsTable.id })
+    .from(jobsTable)
+    .where(
+      and(
+        lt(jobsTable.lastSeenAt, cutoff),
+        eq(jobsTable.possiblyClosed, false)
+      )
+    );
+
+  if (stale.length === 0) return 0;
+
+  await db
+    .update(jobsTable)
+    .set({ possiblyClosed: true })
+    .where(
+      inArray(
+        jobsTable.id,
+        stale.map((row) => row.id)
+      )
+    );
+
+  return stale.length;
+}
