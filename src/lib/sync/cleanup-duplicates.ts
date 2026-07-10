@@ -4,25 +4,22 @@ import { jobs as jobsTable, pages as pagesTable } from "@/lib/schema";
 import { companyRoleKey } from "./dedupe";
 import { pickKeeperJob } from "./company-role-duplicates";
 
-type BoardJob = typeof jobsTable.$inferSelect;
+type JobRow = typeof jobsTable.$inferSelect;
 
-/** Remove board jobs that share the same company + role, keeping the best candidate. */
+/** Remove jobs that share the same company + role, keeping the best candidate. */
 export async function cleanupDuplicateBoardJobs(): Promise<{ removed: number }> {
   const db = getDb();
   if (!db) return { removed: 0 };
 
-  const boardJobs = await db
-    .select()
-    .from(jobsTable)
-    .where(eq(jobsTable.sourceType, "board"));
+  const allJobs = await db.select().from(jobsTable);
 
   const pages = await db.select().from(pagesTable);
   const linkedPageJobIds = new Set(
     pages.flatMap((page) => (page.linkedJobId ? [page.linkedJobId] : []))
   );
 
-  const groups = new Map<string, BoardJob[]>();
-  for (const job of boardJobs) {
+  const groups = new Map<string, JobRow[]>();
+  for (const job of allJobs) {
     const key = companyRoleKey(job);
     const group = groups.get(key) ?? [];
     group.push(job);

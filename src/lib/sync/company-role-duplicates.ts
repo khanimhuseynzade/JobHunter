@@ -33,25 +33,21 @@ export function pickKeeperJob<T extends CompanyRoleJob>(
   );
 }
 
-/** Keep one board job per company + role pair. */
+/** Keep one job per company + role pair across all sources. */
 export function dedupeBoardJobsByCompanyRole<T extends CompanyRoleJob>(
   jobs: T[],
   linkedPageJobIds: Set<string> = new Set()
 ): T[] {
-  const nonBoard = jobs.filter((job) => job.sourceType !== "board");
-  const boardJobs = jobs.filter((job) => job.sourceType === "board");
   const groups = new Map<string, T[]>();
 
-  for (const job of boardJobs) {
+  for (const job of jobs) {
     const key = companyRoleKey(job);
     const group = groups.get(key) ?? [];
     group.push(job);
     groups.set(key, group);
   }
 
-  const uniqueBoard = [...groups.values()].map((group) =>
+  return [...groups.values()].map((group) =>
     group.length === 1 ? group[0] : pickKeeperJob(group, linkedPageJobIds)
   );
-
-  return [...nonBoard, ...uniqueBoard];
 }
