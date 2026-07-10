@@ -80,11 +80,28 @@ interface JobicyResponse {
 
 const JJIT_UX_CATEGORY = "ux";
 
+function nfjGroupKey(posting: NfjPosting): string {
+  return `${posting.title}\u0000${posting.name}\u0000${posting.posted}`;
+}
+
+function nfjExternalKey(posting: NfjPosting): string {
+  const slug = `${posting.title}-${posting.name}-${posting.posted}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return `board:nfj:${slug}`;
+}
+
+/** JJIT appends a random 8-char hash to slugs for reposted listings. */
+function jjitSlugBase(slug: string): string {
+  return slug.replace(/-[a-f0-9]{8}$/i, "");
+}
+
 export async function fetchNoFluffJobs(): Promise<SyncJobInput[]> {
   const data = await fetchJson<NfjResponse>(
     "https://nofluffjobs.com/api/posting?limit=12000"
   );
-  const results: SyncJobInput[] = [];
+  const byGroup = new Map<string, NfjPosting[]>();
 
   for (const posting of data.postings ?? []) {
     if (!matchesRole(posting.title)) continue;
@@ -92,35 +109,54 @@ export async function fetchNoFluffJobs(): Promise<SyncJobInput[]> {
     const postedDate = new Date(posting.posted).toISOString();
     if (!isWithinMaxAge(postedDate)) continue;
 
-    const cities =
-      posting.location?.places
-        ?.map((place) => place.city)
-        .filter((city): city is string => Boolean(city)) ?? [];
-    const countries =
-      posting.location?.places
-        ?.map((place) => place.country?.name)
-        .filter((country): country is string => Boolean(country)) ?? [];
+    const groupKey = nfjGroupKey(posting);
+    const group = byGroup.get(groupKey) ?? [];
+    group.push(posting);
+    byGroup.set(groupKey, group);
+  }
+
+  const results: SyncJobInput[] = [];
+
+  for (const [, group] of byGroup) {
+    const primary =
+      group.find((posting) => posting.location?.fullyRemote) ?? group[0];
+
+    const cities: string[] = [];
+    const countries: string[] = [];
+    let fullyRemote = false;
+    let hybridDesc: string | undefined;
+
+    for (const posting of group) {
+      if (posting.location?.fullyRemote) fullyRemote = true;
+      if (posting.location?.hybridDesc?.trim()) {
+        hybridDesc = posting.location.hybridDesc;
+      }
+      for (const place of posting.location?.places ?? []) {
+        if (place.city) cities.push(place.city);
+        if (place.country?.name) countries.push(place.country.name);
+      }
+    }
 
     const location = formatLocation([
-      posting.location?.fullyRemote ? "Remote" : "",
+      fullyRemote ? "Remote" : "",
       ...cities,
       ...countries,
     ]);
 
     const workMode = inferWorkMode({
-      fullyRemote: posting.location?.fullyRemote,
-      hybridDesc: posting.location?.hybridDesc,
+      fullyRemote,
+      hybridDesc,
       locationText: location,
     });
 
-    const slug = posting.url ?? posting.id;
+    const slug = primary.url ?? primary.id;
     results.push({
-      externalKey: `board:nfj:${posting.id}`,
-      role: posting.title,
-      company: posting.name,
+      externalKey: nfjExternalKey(primary),
+      role: primary.title,
+      company: primary.name,
       location,
       workMode,
-      postedDate,
+      postedDate: new Date(primary.posted).toISOString(),
       latencyDays: null,
       sourceType: "board",
       sourceName: "No Fluff Jobs",
@@ -132,8 +168,7 @@ export async function fetchNoFluffJobs(): Promise<SyncJobInput[]> {
 }
 
 export async function fetchJustJoinIt(): Promise<SyncJobInput[]> {
-  const results: SyncJobInput[] = [];
-  const seen = new Set<string>();
+  const bySlug = new Map<string, { offer: JjitOffer; postedAt: string | null }>();
   let from = 0;
   let totalItems = Infinity;
 
@@ -151,41 +186,56 @@ export async function fetchJustJoinIt(): Promise<SyncJobInput[]> {
     if (batch.length === 0) break;
 
     for (const offer of batch) {
-      if (seen.has(offer.guid)) continue;
-      seen.add(offer.guid);
-
+      const slugBase = jjitSlugBase(offer.slug);
       const postedDate = parseIsoDate(offer.publishedAt);
-      const cities =
-        offer.locations
-          ?.map((place) => place.city)
-          .filter((city): city is string => Boolean(city)) ?? [];
-      const location = locationFromParts([
-        offer.workplaceType === "remote" ? "Remote" : "",
-        offer.city ?? "",
-        ...cities,
-        offer.workplaceType ?? "",
-      ]);
-      const workMode = workModeFromText(
-        location,
-        offer.workplaceType === "remote"
-      );
+      const existing = bySlug.get(slugBase);
+      if (
+        existing &&
+        existing.postedAt &&
+        postedDate &&
+        existing.postedAt >= postedDate
+      ) {
+        continue;
+      }
 
-      const job = toBoardJob({
-        externalKey: `board:jjit:${offer.guid}`,
-        role: offer.title,
-        company: offer.companyName ?? "Unknown",
-        location,
-        workMode,
-        postedDate,
-        sourceName: "Just Join IT",
-        applyUrl: `https://justjoin.it/job-offer/${offer.slug}`,
-      });
-      if (job) results.push(job);
+      bySlug.set(slugBase, { offer, postedAt: postedDate });
     }
 
     const nextCursor = page.meta.next?.cursor;
     if (nextCursor == null || nextCursor === from) break;
     from = nextCursor;
+  }
+
+  const results: SyncJobInput[] = [];
+
+  for (const [slugBase, { offer }] of bySlug) {
+    const postedDate = parseIsoDate(offer.publishedAt);
+    const cities =
+      offer.locations
+        ?.map((place) => place.city)
+        .filter((city): city is string => Boolean(city)) ?? [];
+    const location = locationFromParts([
+      offer.workplaceType === "remote" ? "Remote" : "",
+      offer.city ?? "",
+      ...cities,
+      offer.workplaceType ?? "",
+    ]);
+    const workMode = workModeFromText(
+      location,
+      offer.workplaceType === "remote"
+    );
+
+    const job = toBoardJob({
+      externalKey: `board:jjit:${slugBase}`,
+      role: offer.title,
+      company: offer.companyName ?? "Unknown",
+      location,
+      workMode,
+      postedDate,
+      sourceName: "Just Join IT",
+      applyUrl: `https://justjoin.it/job-offer/${offer.slug}`,
+    });
+    if (job) results.push(job);
   }
 
   return results;
