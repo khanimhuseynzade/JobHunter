@@ -9,6 +9,7 @@ import {
   fetchWeWorkRemotely,
 } from "./fetchers/boards";
 import { fetchLinkedIn } from "./fetchers/linkedin";
+import { cleanupDuplicateBoardJobs } from "./cleanup-duplicates";
 import { dedupeSyncJobs } from "./dedupe";
 import { markGlobalStaleJobs, upsertSyncJobs, writeSyncLog } from "./upsert";
 import type { SyncJobInput, SyncResult } from "./types";
@@ -58,6 +59,8 @@ export async function runBoardSync(): Promise<SyncResult> {
     jobsUpdated += result.jobsUpdated;
   }
 
+  const { removed: jobsRemovedDuplicates } = await cleanupDuplicateBoardJobs();
+
   await markGlobalStaleJobs();
 
   const result: SyncResult = {
@@ -65,6 +68,7 @@ export async function runBoardSync(): Promise<SyncResult> {
     jobsFound: unique.length,
     jobsNew,
     jobsUpdated,
+    jobsRemovedDuplicates,
     errors,
   };
 

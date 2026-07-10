@@ -12,7 +12,8 @@
     "db:push": "drizzle-kit push",
     "db:seed": "tsx scripts/seed.ts",
     "sync:boards": "tsx scripts/sync-boards.ts",
-    "sync:companies": "tsx scripts/sync-companies.ts"
+    "sync:companies": "tsx scripts/sync-companies.ts",
+    "cleanup:duplicates": "tsx scripts/cleanup-duplicates.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

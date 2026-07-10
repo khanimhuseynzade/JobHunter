@@ -18,5 +18,6 @@ export interface SyncResult {
   jobsFound: number;
   jobsNew: number;
   jobsUpdated: number;
+  jobsRemovedDuplicates?: number;
   errors: string[];
 }

@@ -44,20 +44,17 @@ function normalizeExternalKey(key: string): string {
   return key;
 }
 
-function contentFingerprint(job: SyncJobInput): string {
-  return [
-    job.sourceName,
-    job.role.trim().toLowerCase(),
-    job.company.trim().toLowerCase(),
-    job.location.trim().toLowerCase(),
-  ].join("|");
+export function companyRoleKey(job: { company: string; role: string }): string {
+  return [job.company.trim().toLowerCase(), job.role.trim().toLowerCase()].join(
+    "|"
+  );
 }
 
-/** Drop duplicate listings by external key, apply URL, and per-source content fingerprint. */
+/** Drop duplicate listings by external key, apply URL, and company + role. */
 export function dedupeSyncJobs(jobs: SyncJobInput[]): SyncJobInput[] {
   const byKey = new Set<string>();
   const byUrl = new Set<string>();
-  const byFingerprint = new Set<string>();
+  const byCompanyRole = new Set<string>();
   const unique: SyncJobInput[] = [];
 
   for (const job of jobs) {
@@ -67,12 +64,12 @@ export function dedupeSyncJobs(jobs: SyncJobInput[]): SyncJobInput[] {
     const normalizedUrl = normalizeApplyUrl(job.applyUrl);
     if (normalizedUrl && byUrl.has(normalizedUrl)) continue;
 
-    const fingerprint = contentFingerprint(job);
-    if (byFingerprint.has(fingerprint)) continue;
+    const companyRole = companyRoleKey(job);
+    if (byCompanyRole.has(companyRole)) continue;
 
     byKey.add(normalizedKey);
     if (normalizedUrl) byUrl.add(normalizedUrl);
-    byFingerprint.add(fingerprint);
+    byCompanyRole.add(companyRole);
     unique.push(job);
   }
 

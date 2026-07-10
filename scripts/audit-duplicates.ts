@@ -9,7 +9,7 @@ import {
   fetchWeWorkRemotely,
 } from "../src/lib/sync/fetchers/boards";
 import { fetchCompanyJobs } from "../src/lib/sync/fetchers/companies";
-import { dedupeSyncJobs } from "../src/lib/sync/dedupe";
+import { dedupeSyncJobs, companyRoleKey } from "../src/lib/sync/dedupe";
 import type { SyncJobInput } from "../src/lib/sync/types";
 import { companies } from "../config/companies";
 
@@ -22,29 +22,22 @@ function normalizeUrl(url: string): string {
   }
 }
 
-function fingerprint(job: SyncJobInput): string {
-  return [
-    job.sourceName,
-    job.role.trim().toLowerCase(),
-    job.company.trim().toLowerCase(),
-    job.location.trim().toLowerCase(),
-  ].join("|");
-}
-
 function audit(name: string, jobs: SyncJobInput[]) {
   const dupKeys = jobs.length - new Set(jobs.map((j) => j.externalKey)).size;
   const dupUrls = jobs.length - new Set(jobs.map((j) => j.applyUrl)).size;
   const dupNormUrls =
     jobs.length - new Set(jobs.map((j) => normalizeUrl(j.applyUrl))).size;
 
-  const byFingerprint = new Map<string, SyncJobInput[]>();
+  const byCompanyRole = new Map<string, SyncJobInput[]>();
   for (const job of jobs) {
-    const key = fingerprint(job);
-    const group = byFingerprint.get(key) ?? [];
+    const key = companyRoleKey(job);
+    const group = byCompanyRole.get(key) ?? [];
     group.push(job);
-    byFingerprint.set(key, group);
+    byCompanyRole.set(key, group);
   }
-  const dupFingerprints = [...byFingerprint.entries()].filter(([, g]) => g.length > 1);
+  const dupCompanyRoles = [...byCompanyRole.entries()].filter(
+    ([, g]) => g.length > 1
+  );
 
   const deduped = dedupeSyncJobs(jobs);
   const removed = jobs.length - deduped.length;
@@ -54,11 +47,11 @@ function audit(name: string, jobs: SyncJobInput[]) {
   console.log(`dup externalKey: ${dupKeys}`);
   console.log(`dup applyUrl: ${dupUrls}`);
   console.log(`dup normalized applyUrl: ${dupNormUrls}`);
-  console.log(`dup role+company+location fingerprint: ${dupFingerprints.length}`);
+  console.log(`dup company+role: ${dupCompanyRoles.length}`);
   console.log(`removed by dedupeSyncJobs: ${removed}`);
 
-  for (const [fp, group] of dupFingerprints.slice(0, 3)) {
-    console.log(`  fingerprint (${group.length}): ${fp}`);
+  for (const [key, group] of dupCompanyRoles.slice(0, 3)) {
+    console.log(`  company+role (${group.length}): ${key}`);
     for (const job of group.slice(0, 4)) {
       console.log(`    key=${job.externalKey}`);
       console.log(`    url=${job.applyUrl}`);
