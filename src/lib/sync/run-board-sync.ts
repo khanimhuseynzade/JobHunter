@@ -8,6 +8,7 @@ import {
   fetchRemoteOk,
   fetchWeWorkRemotely,
 } from "./fetchers/boards";
+import { fetchLinkedIn } from "./fetchers/linkedin";
 import { dedupeSyncJobs } from "./dedupe";
 import { markGlobalStaleJobs, upsertSyncJobs, writeSyncLog } from "./upsert";
 import type { SyncJobInput, SyncResult } from "./types";
@@ -23,6 +24,7 @@ const boardFetchers: Record<
   jobicy: fetchJobicy,
   remoteok: fetchRemoteOk,
   euremotejobs: fetchEuRemoteJobs,
+  linkedin: fetchLinkedIn,
 };
 
 export async function runBoardSync(): Promise<SyncResult> {

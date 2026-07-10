@@ -5,7 +5,8 @@ export type BoardProvider =
   | "weworkremotely"
   | "jobicy"
   | "remoteok"
-  | "euremotejobs";
+  | "euremotejobs"
+  | "linkedin";
 
 export interface BoardConfig {
   id: string;
@@ -56,6 +57,12 @@ export const boards: BoardConfig[] = [
     id: "euremotejobs",
     name: "EU Remote Jobs",
     provider: "euremotejobs",
+    enabled: true,
+  },
+  {
+    id: "linkedin",
+    name: "LinkedIn",
+    provider: "linkedin",
     enabled: true,
   },
 ];

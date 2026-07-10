@@ -78,10 +78,20 @@ Sync behavior is driven by repo config (not shown in the UI):
 | File | Purpose |
 |------|---------|
 | `config/filters.ts` | Target roles, 30-day recency |
-| `config/boards.ts` | Job boards (No Fluff Jobs, Just Join IT, Bulldogjob, WWR, Jobicy, RemoteOK, EU Remote Jobs) |
+| `config/boards.ts` | Job boards (No Fluff Jobs, Just Join IT, Bulldogjob, WWR, Jobicy, RemoteOK, EU Remote Jobs, LinkedIn) |
+| `config/linkedin.ts` | LinkedIn guest-search queries (role × location) |
 | `config/companies.ts` | Top companies + ATS slugs (Greenhouse/Lever/Ashby) |
 
 Add ATS slugs to `config/companies.ts` as you discover them. Companies without `ats` are skipped by company sync.
+
+### LinkedIn
+
+LinkedIn has no public API, so Board uses two workarounds:
+
+1. **Daily sync** — LinkedIn's guest search endpoint (`jobs-guest`) with one query per role × region (Poland, EU, UK) in `config/linkedin.ts`
+2. **Manual import** — paste job URLs on the Jobs page (fetches each listing via the guest job API)
+
+To adjust LinkedIn coverage, edit `config/linkedin.ts` (roles from `config/filters.ts`, regions in `linkedinRegions`).
 
 ## How sync works
 
