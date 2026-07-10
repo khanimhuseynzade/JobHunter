@@ -10,7 +10,7 @@ export interface LinkedInSearch {
 
 const linkedinRegions = ["Poland", "European Union", "United Kingdom"] as const;
 
-export const linkedinSearches: LinkedInSearch[] = filters.roles.flatMap(
+export const linkedinSearches: LinkedInSearch[] = filters.searchRoles.flatMap(
   (role) =>
     linkedinRegions.map((location) => ({
       keywords: role,

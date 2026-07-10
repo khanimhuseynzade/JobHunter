@@ -1,6 +1,6 @@
 import { filters } from "../../../config/filters";
 
-const rolePatterns = filters.roles.map((role) =>
+const rolePatterns = filters.matchPatterns.map((role) =>
   role
     .toLowerCase()
     .replace(/\//g, " ")
