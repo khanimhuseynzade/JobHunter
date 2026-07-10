@@ -2,28 +2,9 @@ import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { jobs as jobsTable, pages as pagesTable } from "@/lib/schema";
 import { companyRoleKey } from "./dedupe";
+import { pickKeeperJob } from "./company-role-duplicates";
 
 type BoardJob = typeof jobsTable.$inferSelect;
-
-function keeperScore(job: BoardJob, linkedPageJobIds: Set<string>): number {
-  let score = 0;
-  if (job.status) score += 1_000_000;
-  if (job.pageId) score += 100_000;
-  if (linkedPageJobIds.has(job.id)) score += 100_000;
-  score += new Date(job.lastSeenAt).getTime();
-  return score;
-}
-
-function pickKeeper(
-  jobs: BoardJob[],
-  linkedPageJobIds: Set<string>
-): BoardJob {
-  return jobs.reduce((best, job) =>
-    keeperScore(job, linkedPageJobIds) > keeperScore(best, linkedPageJobIds)
-      ? job
-      : best
-  );
-}
 
 /** Remove board jobs that share the same company + role, keeping the best candidate. */
 export async function cleanupDuplicateBoardJobs(): Promise<{ removed: number }> {
@@ -54,7 +35,7 @@ export async function cleanupDuplicateBoardJobs(): Promise<{ removed: number }> 
   for (const group of groups.values()) {
     if (group.length <= 1) continue;
 
-    const keeper = pickKeeper(group, linkedPageJobIds);
+    const keeper = pickKeeperJob(group, linkedPageJobIds);
     const duplicates = group.filter((job) => job.id !== keeper.id);
 
     for (const duplicate of duplicates) {

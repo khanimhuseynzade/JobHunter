@@ -1,12 +1,22 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { jobs as jobsTable } from "@/lib/schema";
+import { jobs as jobsTable, pages as pagesTable } from "@/lib/schema";
 import {
   getMemoryJobs,
   setMemoryJobs,
   sortJobs,
 } from "@/lib/seed";
+import { cleanupDuplicateBoardJobs } from "@/lib/sync/cleanup-duplicates";
+import { dedupeBoardJobsByCompanyRole } from "@/lib/sync/company-role-duplicates";
 import type { Job, JobStatus } from "@/types";
+
+let cleanupStarted = false;
+
+function scheduleDuplicateCleanup(): void {
+  if (cleanupStarted) return;
+  cleanupStarted = true;
+  void cleanupDuplicateBoardJobs();
+}
 
 function rowToJob(row: typeof jobsTable.$inferSelect): Job {
   return {
@@ -37,10 +47,18 @@ export async function fetchJobs(options?: {
   let list: Job[];
 
   if (db) {
-    const rows = await db.select().from(jobsTable);
-    list = rows.map(rowToJob);
+    scheduleDuplicateCleanup();
+
+    const [rows, pages] = await Promise.all([
+      db.select().from(jobsTable),
+      db.select({ linkedJobId: pagesTable.linkedJobId }).from(pagesTable),
+    ]);
+    const linkedPageJobIds = new Set(
+      pages.flatMap((page) => (page.linkedJobId ? [page.linkedJobId] : []))
+    );
+    list = dedupeBoardJobsByCompanyRole(rows.map(rowToJob), linkedPageJobIds);
   } else {
-    list = getMemoryJobs();
+    list = dedupeBoardJobsByCompanyRole(getMemoryJobs());
   }
 
   let filtered = list;
