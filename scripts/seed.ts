@@ -1,3 +1,4 @@
+import "./load-env";
 import { getDb } from "@/lib/db";
 import { jobs, pages } from "@/lib/schema";
 import { seedJobs, seedPages } from "@/lib/seed";

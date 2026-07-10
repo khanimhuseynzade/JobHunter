@@ -1,3 +1,4 @@
+import "./load-env";
 import { runBoardSync } from "@/lib/sync/run-board-sync";
 
 async function main() {

@@ -1,3 +1,4 @@
+import "./load-env";
 import { runCompanySync } from "@/lib/sync/run-company-sync";
 
 async function main() {

@@ -10,9 +10,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:seed": "tsx --env-file=.env scripts/seed.ts",
-    "sync:boards": "tsx --env-file=.env scripts/sync-boards.ts",
-    "sync:companies": "tsx --env-file=.env scripts/sync-companies.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "sync:boards": "tsx scripts/sync-boards.ts",
+    "sync:companies": "tsx scripts/sync-companies.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
