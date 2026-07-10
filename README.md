@@ -6,7 +6,7 @@ Personal job board — synced listings, status triage, and markdown notes.
 
 - **Next.js** — responsive web app (Jobs + Pages)
 - **Neon Postgres** — persistent storage
-- **GitHub Actions** — daily board + company sync (free)
+- **Vercel Cron** — daily board + company sync (automatic on deploy)
 
 ## Local development
 
@@ -49,26 +49,22 @@ The app automatically uses Neon when `DATABASE_URL` is set.
 3. Add environment variable: `DATABASE_URL` (same Neon connection string)
 4. Deploy
 
-## 3. Daily sync (GitHub Actions)
+That's it — **sync runs automatically every day** after deploy. Vercel Cron hits two endpoints defined in `vercel.json`:
 
-Two independent cron jobs run daily:
+| Cron | Schedule (UTC) | What it syncs |
+|------|----------------|---------------|
+| `/api/cron/sync-boards` | 06:00 | All job boards (including LinkedIn) |
+| `/api/cron/sync-companies` | 06:30 | Company career pages |
 
-| Workflow | Schedule (UTC) | Command |
-|----------|----------------|---------|
-| `sync-boards.yml` | 06:00 | `npm run sync:boards` |
-| `sync-companies.yml` | 06:30 | `npm run sync:companies` |
+Vercel sets `CRON_SECRET` automatically for cron requests. No GitHub Actions setup, no manual runs.
 
-### Setup
+To trigger a sync immediately after deploy: Vercel → **Settings → Cron Jobs** → run once, or redeploy.
 
-1. In GitHub → **Settings → Secrets → Actions**, add `DATABASE_URL`
-2. Enable workflows under the **Actions** tab
-3. Run manually once via **workflow_dispatch** to test
-
-### Run sync locally
+### Run sync locally (optional)
 
 ```bash
-DATABASE_URL=postgresql://... npm run sync:boards
-DATABASE_URL=postgresql://... npm run sync:companies
+npm run sync:boards
+npm run sync:companies
 ```
 
 ## Configuration
@@ -86,10 +82,7 @@ Add ATS slugs to `config/companies.ts` as you discover them. Companies without `
 
 ### LinkedIn
 
-LinkedIn has no public API, so Board uses two workarounds:
-
-1. **Daily sync** — LinkedIn's guest search endpoint (`jobs-guest`) with one query per role × region (Poland, EU, UK) in `config/linkedin.ts`
-2. **Manual import** — paste job URLs on the Jobs page (fetches each listing via the guest job API)
+LinkedIn has no public API, so Board uses LinkedIn's guest search endpoint (`jobs-guest`) during daily board sync — one query per role × region (Poland, EU, UK) in `config/linkedin.ts`.
 
 To adjust LinkedIn coverage, edit `config/linkedin.ts` (roles from `config/filters.ts`, regions in `linkedinRegions`).
 
@@ -110,5 +103,5 @@ Board/
 ├── src/app/pages/    ← Markdown notes
 ├── src/lib/sync/     ← Sync fetchers + upsert logic
 ├── scripts/          ← seed + sync entrypoints
-└── .github/workflows ← daily cron
+└── vercel.json       ← daily cron schedules
 ```

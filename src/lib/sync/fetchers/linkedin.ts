@@ -13,8 +13,6 @@ import {
 
 const LINKEDIN_GUEST_API =
   "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search";
-const LINKEDIN_JOB_API =
-  "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting";
 const LINKEDIN_USER_AGENT =
   "Mozilla/5.0 (compatible; Board/1.0; +https://github.com)";
 
@@ -69,55 +67,6 @@ export function parseLinkedInSearchHtml(html: string): LinkedInJobCard[] {
   return results;
 }
 
-export function parseLinkedInJobHtml(html: string, jobId: string): LinkedInJobCard | null {
-  const role = html.match(/topcard__title[^>]*>([^<]+)/)?.[1];
-  const company = html.match(
-    /topcard__org-name-link[^>]*>\s*([^<]+)/
-  )?.[1];
-  const location = html.match(
-    /topcard__flavor topcard__flavor--bullet[^>]*>\s*([^<]+)/
-  )?.[1];
-  const applyUrl =
-    html.match(/topcard__link[^>]*href="([^"]+)"/)?.[1] ??
-    `https://www.linkedin.com/jobs/view/${jobId}`;
-
-  if (!role) return null;
-
-  const agoMatch = html.match(/posted-time-ago__text[^>]*>[\s\S]*?(\d+)\s+days?\s+ago/i);
-  let postedDate: string | null = null;
-  if (agoMatch) {
-    const days = Number(agoMatch[1]);
-    if (!Number.isNaN(days)) {
-      postedDate = new Date(Date.now() - days * 86400000).toISOString();
-    }
-  }
-
-  return {
-    jobId,
-    role: cleanText(role),
-    company: cleanText(company ?? "Unknown"),
-    location: cleanText(location ?? ""),
-    applyUrl: cleanText(applyUrl),
-    postedDate,
-  };
-}
-
-export function extractLinkedInJobId(url: string): string | null {
-  const trimmed = url.trim();
-  const patterns = [
-    /linkedin\.com\/jobs\/view\/[^/?#]*-(\d+)/i,
-    /currentJobId=(\d+)/i,
-    /linkedin\.com\/jobs\/view\/(\d+)/i,
-  ];
-
-  for (const pattern of patterns) {
-    const match = trimmed.match(pattern);
-    if (match?.[1]) return match[1];
-  }
-
-  return null;
-}
-
 function linkedInSearchUrl(search: LinkedInSearch, start: number): string {
   const url = new URL(LINKEDIN_GUEST_API);
   url.searchParams.set("keywords", search.keywords);
@@ -163,52 +112,6 @@ function toSyncJob(card: LinkedInJobCard): SyncJobInput | null {
     sourceName: "LinkedIn",
     applyUrl: card.applyUrl,
   };
-}
-
-export async function fetchLinkedInJobById(jobId: string): Promise<SyncJobInput | null> {
-  const html = await fetchLinkedInHtml(`${LINKEDIN_JOB_API}/${jobId}`);
-  const card = parseLinkedInJobHtml(html, jobId);
-  if (!card) return null;
-  return toSyncJob(card);
-}
-
-export async function importLinkedInUrls(urls: string[]): Promise<{
-  imported: SyncJobInput[];
-  skipped: string[];
-  errors: string[];
-}> {
-  const imported: SyncJobInput[] = [];
-  const skipped: string[] = [];
-  const errors: string[] = [];
-  const seen = new Set<string>();
-
-  for (const rawUrl of urls) {
-    const url = rawUrl.trim();
-    if (!url) continue;
-
-    const jobId = extractLinkedInJobId(url);
-    if (!jobId) {
-      errors.push(`Invalid LinkedIn URL: ${url}`);
-      continue;
-    }
-    if (seen.has(jobId)) continue;
-    seen.add(jobId);
-
-    try {
-      const job = await fetchLinkedInJobById(jobId);
-      if (!job) {
-        skipped.push(url);
-        continue;
-      }
-      imported.push(job);
-    } catch (error) {
-      errors.push(
-        `${url}: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  return { imported, skipped, errors };
 }
 
 export async function fetchLinkedIn(): Promise<SyncJobInput[]> {
