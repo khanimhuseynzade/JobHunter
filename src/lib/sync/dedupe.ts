@@ -44,8 +44,19 @@ function normalizeExternalKey(key: string): string {
   return key;
 }
 
+function normalizeCompany(company: string): string {
+  let name = company.trim().toLowerCase().replace(/_/g, " ");
+  name = name
+    .replace(/spółka z ograniczoną odpowiedzialnością/gi, "")
+    .replace(/\bsp\.?\s*z\.?\s*o\.?\s*o\.?\b/gi, "")
+    .replace(/\b(ltd\.?|inc\.?|gmbh|s\.?a\.?)\b/gi, "");
+  name = name.replace(/\s+(poland|polska|uk|usa|europe)$/i, "");
+  name = name.replace(/[^\p{L}\p{N}\s]/gu, " ");
+  return name.replace(/\s+/g, " ").trim();
+}
+
 export function companyRoleKey(job: { company: string; role: string }): string {
-  return [job.company.trim().toLowerCase(), job.role.trim().toLowerCase()].join(
+  return [normalizeCompany(job.company), job.role.trim().toLowerCase()].join(
     "|"
   );
 }
