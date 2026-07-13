@@ -3,6 +3,10 @@ import { getDb } from "@/lib/db";
 import { jobs as jobsTable, syncLogs } from "@/lib/schema";
 import { filters } from "../../../config/filters";
 import { dedupeSyncJobs } from "./dedupe";
+import {
+  isOldEnoughToClose,
+  shouldMarkPossiblyClosed,
+} from "./possibly-closed";
 import type { SyncJobInput, SyncResult } from "./types";
 
 function latencyFromPosted(postedDate: string | null): number | null {
@@ -76,15 +80,46 @@ export async function upsertSyncJobs(
   }
 
   if (seenKeys.length > 0) {
-    await db
-      .update(jobsTable)
-      .set({ possiblyClosed: true })
+    const missed = await db
+      .select({
+        id: jobsTable.id,
+        postedDate: jobsTable.postedDate,
+        latencyDays: jobsTable.latencyDays,
+        firstSeenAt: jobsTable.firstSeenAt,
+      })
+      .from(jobsTable)
       .where(
         and(
           eq(jobsTable.sourceName, sourceName),
           lt(jobsTable.lastSeenAt, syncStartedAt)
         )
       );
+
+    const toClose = missed.filter((job) => shouldMarkPossiblyClosed(job));
+    if (toClose.length > 0) {
+      await db
+        .update(jobsTable)
+        .set({ possiblyClosed: true })
+        .where(
+          inArray(
+            jobsTable.id,
+            toClose.map((job) => job.id)
+          )
+        );
+    }
+
+    const toReopen = missed.filter((job) => !shouldMarkPossiblyClosed(job));
+    if (toReopen.length > 0) {
+      await db
+        .update(jobsTable)
+        .set({ possiblyClosed: false })
+        .where(
+          inArray(
+            jobsTable.id,
+            toReopen.map((job) => job.id)
+          )
+        );
+    }
   }
 
   return {
@@ -113,12 +148,42 @@ export async function markGlobalStaleJobs(): Promise<number> {
   const db = getDb();
   if (!db) return 0;
 
+  let marked = 0;
+
+  const wronglyClosed = await db
+    .select({
+      id: jobsTable.id,
+      postedDate: jobsTable.postedDate,
+      latencyDays: jobsTable.latencyDays,
+      firstSeenAt: jobsTable.firstSeenAt,
+    })
+    .from(jobsTable)
+    .where(eq(jobsTable.possiblyClosed, true));
+
+  const toReopen = wronglyClosed.filter((job) => !isOldEnoughToClose(job));
+  if (toReopen.length > 0) {
+    await db
+      .update(jobsTable)
+      .set({ possiblyClosed: false })
+      .where(
+        inArray(
+          jobsTable.id,
+          toReopen.map((job) => job.id)
+        )
+      );
+  }
+
   const cutoff = new Date(
     Date.now() - filters.staleAfterDays * 86400000
   ).toISOString();
 
   const stale = await db
-    .select({ id: jobsTable.id })
+    .select({
+      id: jobsTable.id,
+      postedDate: jobsTable.postedDate,
+      latencyDays: jobsTable.latencyDays,
+      firstSeenAt: jobsTable.firstSeenAt,
+    })
     .from(jobsTable)
     .where(
       and(
@@ -127,7 +192,8 @@ export async function markGlobalStaleJobs(): Promise<number> {
       )
     );
 
-  if (stale.length === 0) return 0;
+  const toClose = stale.filter((job) => shouldMarkPossiblyClosed(job));
+  if (toClose.length === 0) return 0;
 
   await db
     .update(jobsTable)
@@ -135,9 +201,10 @@ export async function markGlobalStaleJobs(): Promise<number> {
     .where(
       inArray(
         jobsTable.id,
-        stale.map((row) => row.id)
+        toClose.map((row) => row.id)
       )
     );
 
-  return stale.length;
+  marked = toClose.length;
+  return marked;
 }

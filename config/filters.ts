@@ -90,8 +90,8 @@ export const filters = {
   linkedInRemoteRoles,
   /** Only include listings posted within this many days. */
   maxAgeDays: 30,
-  /** Mark as possibly closed if not seen in sync for this many days. */
-  staleAfterDays: 45,
+  /** Mark as possibly closed when not seen in sync and at least this old. */
+  staleAfterDays: 30,
   /**
    * Per-source posted-date policy. Default keeps unknown dates (recall-first).
    * Set allowUnknownDate: false only for sources that always provide dates.

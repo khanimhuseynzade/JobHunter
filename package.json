@@ -11,6 +11,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:migrate:expired-status": "tsx scripts/migrate-add-expired-status.ts",
+    "db:migrate:statuses": "tsx scripts/migrate-statuses.ts",
+    "import:statuses": "tsx scripts/import-statuses-from-json.ts",
     "db:seed": "tsx scripts/seed.ts",
     "sync:boards": "tsx scripts/sync-boards.ts",
     "sync:companies": "tsx scripts/sync-companies.ts",
