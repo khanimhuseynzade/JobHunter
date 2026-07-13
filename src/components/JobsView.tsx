@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Job, JobStatus, WorkMode } from "@/types";
 import { WORK_MODE_LABELS } from "@/types";
 import { getLastSyncLabel } from "@/lib/seed";
+import { isToday } from "@/lib/job-dates";
 import {
   sortJobList,
   type JobSortKey,
@@ -94,6 +95,17 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
     return sortJobList(filteredJobs, sortKey, sortDir);
   }, [filteredJobs, sortKey, sortDir]);
 
+  const jobStats = useMemo(
+    () => ({
+      total: jobs.length,
+      addedToday: jobs.filter((job) => isToday(job.firstSeenAt)).length,
+      applied: jobs.filter((job) => job.status === "applied").length,
+    }),
+    [jobs]
+  );
+
+  const hasLocalFilter = Boolean(query.trim() || workMode);
+
   function handleSortChange(key: JobSortKey) {
     if (sortKey === key) {
       setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
@@ -125,13 +137,25 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
     <div>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-black">
-            {visibleJobs.length} jobs
-            {visibleJobs.length !== jobs.length ? (
-              <span className="text-base font-normal text-gray-500">
-                {" "}
-                of {jobs.length}
-              </span>
+          <h1 className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xl font-semibold text-black">
+            <span>{jobStats.total} total</span>
+            <span className="font-normal text-gray-300" aria-hidden>
+              ·
+            </span>
+            <span>{jobStats.addedToday} added today</span>
+            <span className="font-normal text-gray-300" aria-hidden>
+              ·
+            </span>
+            <span>{jobStats.applied} applied</span>
+            {hasLocalFilter && visibleJobs.length !== jobs.length ? (
+              <>
+                <span className="font-normal text-gray-300" aria-hidden>
+                  ·
+                </span>
+                <span className="text-base font-normal text-gray-500">
+                  {visibleJobs.length} matching
+                </span>
+              </>
             ) : null}
           </h1>
           <p className="text-sm text-gray-500">

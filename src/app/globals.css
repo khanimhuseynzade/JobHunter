@@ -25,6 +25,26 @@
   --color-blue-600: #2563eb;
   --color-blue-700: #1d4ed8;
   --color-blue-800: #1e40af;
+
+  --color-green-100: #dcfce7;
+  --color-green-200: #bbf7d0;
+  --color-green-800: #166534;
+
+  --color-violet-100: #ede9fe;
+  --color-violet-200: #ddd6fe;
+  --color-violet-800: #5b21b6;
+
+  --color-rose-100: #ffe4e6;
+  --color-rose-200: #fecdd3;
+  --color-rose-800: #9f1239;
+
+  --color-amber-100: #fef3c7;
+  --color-amber-200: #fde68a;
+  --color-amber-800: #92400e;
+
+  --color-teal-100: #ccfbf1;
+  --color-teal-200: #99f6e4;
+  --color-teal-800: #115e59;
 }
 
 body {
@@ -42,22 +62,37 @@ body {
 }
 
 .chip-applied {
-  background-color: var(--color-blue-100);
-  color: var(--color-blue-800);
+  background-color: var(--color-green-100);
+  color: var(--color-green-800);
+  border: 1px solid var(--color-green-200);
 }
 
 .chip-skipped {
-  background-color: var(--color-gray-200);
-  color: var(--color-gray-500);
+  background-color: var(--color-violet-100);
+  color: var(--color-violet-800);
+  border: 1px solid var(--color-violet-200);
 }
 
 .chip-reached_out {
-  background-color: var(--color-blue-50);
-  color: var(--color-blue-700);
+  background-color: var(--color-blue-100);
+  color: var(--color-blue-800);
   border: 1px solid var(--color-blue-200);
 }
 
 .chip-rejected {
-  background-color: var(--color-gray-100);
-  color: var(--color-gray-400);
+  background-color: var(--color-rose-100);
+  color: var(--color-rose-800);
+  border: 1px solid var(--color-rose-200);
+}
+
+.chip-expired {
+  background-color: var(--color-amber-100);
+  color: var(--color-amber-800);
+  border: 1px solid var(--color-amber-200);
+}
+
+.chip-posted-today {
+  background-color: var(--color-teal-100);
+  color: var(--color-teal-800);
+  border: 1px solid var(--color-teal-200);
 }

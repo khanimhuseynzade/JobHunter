@@ -2,7 +2,9 @@
 
 import type { Job, JobStatus } from "@/types";
 import { WORK_MODE_LABELS } from "@/types";
+import { isJobPostedToday } from "@/lib/job-dates";
 import { StatusDropdown } from "./StatusDropdown";
+import { PostedTodayBadge } from "./PostedTodayBadge";
 
 interface JobDetailProps {
   job: Job;
@@ -20,7 +22,10 @@ export function JobDetail({ job, onClose, onStatusChange }: JobDetailProps) {
       <div className="fixed bottom-0 left-0 right-0 z-40 max-h-[85vh] overflow-y-auto rounded-t-2xl border border-gray-200 bg-white p-6 shadow-xl md:bottom-auto md:left-auto md:right-6 md:top-24 md:w-96 md:rounded-xl">
         <div className="mb-4 flex items-start justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-black">{job.role}</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-black">{job.role}</h2>
+              {isJobPostedToday(job) ? <PostedTodayBadge /> : null}
+            </div>
             <p className="text-gray-600">{job.company}</p>
           </div>
           <button

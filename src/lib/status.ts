@@ -10,6 +10,7 @@ export const STATUS_CHIP_CLASS: Record<
   skipped: "chip-skipped",
   reached_out: "chip-reached_out",
   rejected: "chip-rejected",
+  expired: "chip-expired",
 };
 
 export function statusLabel(status: JobStatus | null): string {

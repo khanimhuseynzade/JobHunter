@@ -13,7 +13,8 @@ const STATUS_ORDER: Record<JobStatus, number> = {
   applied: 1,
   reached_out: 2,
   rejected: 3,
-  skipped: 4,
+  expired: 4,
+  skipped: 5,
 };
 
 const WORK_MODE_ORDER: Record<WorkMode, number> = {

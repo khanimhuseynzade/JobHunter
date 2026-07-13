@@ -3,7 +3,9 @@
 import type { Job, JobStatus } from "@/types";
 import { WORK_MODE_LABELS } from "@/types";
 import type { JobSortKey, SortDirection } from "@/lib/job-sort";
+import { isJobPostedToday } from "@/lib/job-dates";
 import { StatusDropdown } from "./StatusDropdown";
+import { PostedTodayBadge } from "./PostedTodayBadge";
 
 interface JobsTableProps {
   jobs: Job[];
@@ -140,6 +142,7 @@ export function JobsTable({
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
                   )}
                   {job.role}
+                  {isJobPostedToday(job) ? <PostedTodayBadge /> : null}
                 </span>
               </td>
               <td className="px-4 py-3 text-gray-700">{job.company}</td>

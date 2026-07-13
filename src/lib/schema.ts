@@ -13,6 +13,7 @@ export const jobStatusEnum = pgEnum("job_status", [
   "skipped",
   "reached_out",
   "rejected",
+  "expired",
 ]);
 
 export const sourceTypeEnum = pgEnum("source_type", ["board", "company"]);

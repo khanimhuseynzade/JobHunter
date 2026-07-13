@@ -2,7 +2,9 @@
 
 import type { Job, JobStatus } from "@/types";
 import { WORK_MODE_LABELS } from "@/types";
+import { isJobPostedToday } from "@/lib/job-dates";
 import { StatusDropdown } from "./StatusDropdown";
+import { PostedTodayBadge } from "./PostedTodayBadge";
 
 interface JobCardsProps {
   jobs: Job[];
@@ -43,6 +45,7 @@ export function JobCards({ jobs, onStatusChange, onSelect }: JobCardsProps) {
                   <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
                 )}
                 <h3 className="font-medium text-black">{job.role}</h3>
+                {isJobPostedToday(job) ? <PostedTodayBadge /> : null}
               </div>
               <p className="text-sm text-gray-600">{job.company}</p>
             </div>
