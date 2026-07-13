@@ -12,11 +12,21 @@ import { fetchLinkedIn } from "./fetchers/linkedin";
 import { cleanupDuplicateBoardJobs } from "./cleanup-duplicates";
 import { dedupeSyncJobs } from "./dedupe";
 import { markGlobalStaleJobs, upsertSyncJobs, writeSyncLog } from "./upsert";
-import type { SyncJobInput, SyncResult } from "./types";
+import type { SyncJobInput, BoardFetcherResult, SyncResult } from "./types";
+
+function normalizeBoardFetch(result: BoardFetcherResult): {
+  jobs: SyncJobInput[];
+  warnings: string[];
+} {
+  if (Array.isArray(result)) {
+    return { jobs: result, warnings: [] };
+  }
+  return { jobs: result.jobs, warnings: result.warnings ?? [] };
+}
 
 const boardFetchers: Record<
   BoardProvider,
-  () => Promise<SyncJobInput[]>
+  () => Promise<BoardFetcherResult>
 > = {
   nofluffjobs: fetchNoFluffJobs,
   justjoinit: fetchJustJoinIt,
@@ -37,8 +47,11 @@ export async function runBoardSync(): Promise<SyncResult> {
 
     try {
       const fetcher = boardFetchers[board.provider];
-      const jobs = await fetcher();
+      const { jobs, warnings } = normalizeBoardFetch(await fetcher());
       collected.push(...jobs);
+      for (const warning of warnings) {
+        errors.push(`${board.name}: ${warning}`);
+      }
     } catch (error) {
       errors.push(
         `${board.name}: ${error instanceof Error ? error.message : String(error)}`

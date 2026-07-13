@@ -1,3 +1,5 @@
+import { normalizeRoleForDedupe } from "./match";
+import { pickKeeperJob } from "./company-role-duplicates";
 import type { SyncJobInput } from "./types";
 
 function jjitSlugBase(slug: string): string {
@@ -56,16 +58,31 @@ function normalizeCompany(company: string): string {
 }
 
 export function companyRoleKey(job: { company: string; role: string }): string {
-  return [normalizeCompany(job.company), job.role.trim().toLowerCase()].join(
-    "|"
-  );
+  return [
+    normalizeCompany(job.company),
+    normalizeRoleForDedupe(job.role),
+  ].join("|");
 }
 
-/** Drop duplicate listings by external key, apply URL, and company + role. */
+type SyncKeeperJob = SyncJobInput & {
+  id: string;
+  status: null;
+  lastSeenAt: string;
+};
+
+function toSyncKeeperJob(job: SyncJobInput): SyncKeeperJob {
+  return {
+    ...job,
+    id: job.externalKey,
+    status: null,
+    lastSeenAt: job.postedDate ?? "",
+  };
+}
+
 export function dedupeSyncJobs(jobs: SyncJobInput[]): SyncJobInput[] {
   const byKey = new Set<string>();
   const byUrl = new Set<string>();
-  const byCompanyRole = new Set<string>();
+  const byCompanyRole = new Map<string, SyncJobInput>();
   const unique: SyncJobInput[] = [];
 
   for (const job of jobs) {
@@ -76,11 +93,25 @@ export function dedupeSyncJobs(jobs: SyncJobInput[]): SyncJobInput[] {
     if (normalizedUrl && byUrl.has(normalizedUrl)) continue;
 
     const companyRole = companyRoleKey(job);
-    if (byCompanyRole.has(companyRole)) continue;
+    const existing = byCompanyRole.get(companyRole);
+    if (existing) {
+      const keeper = pickKeeperJob([
+        toSyncKeeperJob(existing),
+        toSyncKeeperJob(job),
+      ]);
+      if (keeper.externalKey !== job.externalKey) continue;
+
+      const idx = unique.indexOf(existing);
+      if (idx !== -1) unique.splice(idx, 1);
+
+      const oldUrl = normalizeApplyUrl(existing.applyUrl);
+      if (oldUrl) byUrl.delete(oldUrl);
+      byKey.delete(normalizeExternalKey(existing.externalKey));
+    }
 
     byKey.add(normalizedKey);
     if (normalizedUrl) byUrl.add(normalizedUrl);
-    byCompanyRole.add(companyRole);
+    byCompanyRole.set(companyRole, job);
     unique.push(job);
   }
 

@@ -15,6 +15,19 @@ export interface BoardConfig {
   enabled: boolean;
 }
 
+/**
+ * Just Join IT category slugs (candidate-api `categories` param).
+ * Design roles are concentrated in `ux`, but some listings are filed under
+ * `mobile`, `pm`, `ai`, or `other`. There is no `product` category on JJIT.
+ */
+export const justJoinItCategories = [
+  "ux",
+  "mobile",
+  "pm",
+  "ai",
+  "other",
+] as const;
+
 /** External job boards — independent from company sync. */
 export const boards: BoardConfig[] = [
   {

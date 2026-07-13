@@ -1,42 +1,39 @@
 import { companyRoleKey } from "./dedupe";
+import {
+  compareSourcePreference,
+  type SourcePreferenceJob,
+} from "./source-preference";
 
-type CompanyRoleJob = {
+type CompanyRoleJob = SourcePreferenceJob & {
   id: string;
   company: string;
   role: string;
-  sourceType: string;
   status: string | null;
-  pageId: string | null;
   lastSeenAt: string;
 };
 
-function keeperScore(
-  job: CompanyRoleJob,
-  linkedPageJobIds: Set<string>
-): number {
-  let score = 0;
-  if (job.status) score += 1_000_000;
-  if (job.pageId) score += 100_000;
-  if (linkedPageJobIds.has(job.id)) score += 100_000;
-  score += new Date(job.lastSeenAt).getTime();
-  return score;
+function compareKeeperJobs<T extends CompanyRoleJob>(a: T, b: T): number {
+  const aHasStatus = a.status !== null;
+  const bHasStatus = b.status !== null;
+  if (aHasStatus !== bHasStatus) return aHasStatus ? 1 : -1;
+
+  const sourceDiff = compareSourcePreference(a, b);
+  if (sourceDiff !== 0) return sourceDiff;
+
+  return (
+    new Date(a.lastSeenAt).getTime() - new Date(b.lastSeenAt).getTime()
+  );
 }
 
-export function pickKeeperJob<T extends CompanyRoleJob>(
-  jobs: T[],
-  linkedPageJobIds: Set<string> = new Set()
-): T {
+export function pickKeeperJob<T extends CompanyRoleJob>(jobs: T[]): T {
   return jobs.reduce((best, job) =>
-    keeperScore(job, linkedPageJobIds) > keeperScore(best, linkedPageJobIds)
-      ? job
-      : best
+    compareKeeperJobs(job, best) > 0 ? job : best
   );
 }
 
 /** Keep one job per company + role pair across all sources. */
 export function dedupeBoardJobsByCompanyRole<T extends CompanyRoleJob>(
-  jobs: T[],
-  linkedPageJobIds: Set<string> = new Set()
+  jobs: T[]
 ): T[] {
   const groups = new Map<string, T[]>();
 
@@ -48,6 +45,6 @@ export function dedupeBoardJobsByCompanyRole<T extends CompanyRoleJob>(
   }
 
   return [...groups.values()].map((group) =>
-    group.length === 1 ? group[0] : pickKeeperJob(group, linkedPageJobIds)
+    group.length === 1 ? group[0] : pickKeeperJob(group)
   );
 }

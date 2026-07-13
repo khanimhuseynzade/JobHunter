@@ -72,7 +72,7 @@ export function toBoardJob(input: {
   applyUrl: string;
 }): SyncJobInput | null {
   if (!matchesRole(input.role)) return null;
-  if (!isWithinMaxAge(input.postedDate)) return null;
+  if (!isWithinMaxAge(input.postedDate, input.sourceName)) return null;
 
   return {
     externalKey: input.externalKey,

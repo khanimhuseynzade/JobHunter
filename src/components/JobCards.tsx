@@ -43,11 +43,6 @@ export function JobCards({ jobs, onStatusChange, onSelect }: JobCardsProps) {
                   <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
                 )}
                 <h3 className="font-medium text-black">{job.role}</h3>
-                {job.pageId && (
-                  <span className="text-[10px] font-medium uppercase tracking-wide text-blue-400">
-                    page
-                  </span>
-                )}
               </div>
               <p className="text-sm text-gray-600">{job.company}</p>
             </div>
@@ -62,8 +57,7 @@ export function JobCards({ jobs, onStatusChange, onSelect }: JobCardsProps) {
             </a>
           </div>
           <p className="mb-3 text-xs text-gray-500">
-            {job.location} · {WORK_MODE_LABELS[job.workMode]} ·{" "}
-            {formatLatency(job.latencyDays)}
+            {WORK_MODE_LABELS[job.workMode]} · {formatLatency(job.latencyDays)}
           </p>
           <div onClick={(e) => e.stopPropagation()}>
             <StatusDropdown

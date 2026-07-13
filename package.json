@@ -13,15 +13,15 @@
     "db:seed": "tsx scripts/seed.ts",
     "sync:boards": "tsx scripts/sync-boards.ts",
     "sync:companies": "tsx scripts/sync-companies.ts",
-    "cleanup:duplicates": "tsx scripts/cleanup-duplicates.ts"
+    "cleanup:duplicates": "tsx scripts/cleanup-duplicates.ts",
+    "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
     "drizzle-orm": "^0.38.3",
     "next": "^15.1.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-markdown": "^9.0.1"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",

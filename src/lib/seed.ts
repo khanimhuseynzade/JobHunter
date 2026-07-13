@@ -1,4 +1,5 @@
-import type { Job, Page } from "@/types";
+import type { Job, WorkMode } from "@/types";
+import { sourcePreferenceScore } from "@/lib/sync/source-preference";
 
 const now = new Date().toISOString();
 
@@ -17,7 +18,6 @@ export const seedJobs: Job[] = [
     applyUrl: "https://justjoin.it",
     status: null,
     possiblyClosed: false,
-    pageId: null,
     firstSeenAt: now,
     lastSeenAt: now,
   },
@@ -35,7 +35,6 @@ export const seedJobs: Job[] = [
     applyUrl: "https://careers.docplanner.com",
     status: null,
     possiblyClosed: false,
-    pageId: null,
     firstSeenAt: now,
     lastSeenAt: now,
   },
@@ -53,7 +52,6 @@ export const seedJobs: Job[] = [
     applyUrl: "https://www.revolut.com/careers",
     status: null,
     possiblyClosed: false,
-    pageId: null,
     firstSeenAt: now,
     lastSeenAt: now,
   },
@@ -71,7 +69,6 @@ export const seedJobs: Job[] = [
     applyUrl: "https://justjoin.it",
     status: "applied",
     possiblyClosed: false,
-    pageId: "b2000001-0000-4000-8000-000000000001",
     firstSeenAt: now,
     lastSeenAt: now,
   },
@@ -89,7 +86,6 @@ export const seedJobs: Job[] = [
     applyUrl: "https://nofluffjobs.com",
     status: "skipped",
     possiblyClosed: false,
-    pageId: null,
     firstSeenAt: now,
     lastSeenAt: now,
   },
@@ -107,47 +103,12 @@ export const seedJobs: Job[] = [
     applyUrl: "https://elevenlabs.io/careers",
     status: "rejected",
     possiblyClosed: true,
-    pageId: null,
     firstSeenAt: now,
     lastSeenAt: now,
   },
 ];
 
-export const seedPages: Page[] = [
-  {
-    id: "b2000001-0000-4000-8000-000000000001",
-    title: "Allegro — Product Design Lead",
-    body: "# Allegro — Product Design Lead\n\n- Applied March 12\n- Hybrid Warsaw, 2 days/week in office\n- Waiting for recruiter reply",
-    folder: "jobs",
-    linkedJobId: "a1000004-0000-4000-8000-000000000004",
-    linkedCompany: "Allegro",
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    id: "b2000002-0000-4000-8000-000000000002",
-    title: "Revolut",
-    body: "# Revolut\n\n- Strong design org\n- Check careers monthly",
-    folder: "companies",
-    linkedJobId: null,
-    linkedCompany: "Revolut",
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    id: "b2000003-0000-4000-8000-000000000003",
-    title: "Interview prep",
-    body: "# Interview prep\n\n- Portfolio walkthrough script\n- Questions about design process",
-    folder: "general",
-    linkedJobId: null,
-    linkedCompany: null,
-    createdAt: now,
-    updatedAt: now,
-  },
-];
-
 let memoryJobs = [...seedJobs];
-let memoryPages = [...seedPages];
 
 export function getMemoryJobs() {
   return memoryJobs;
@@ -157,12 +118,20 @@ export function setMemoryJobs(jobs: Job[]) {
   memoryJobs = jobs;
 }
 
-export function getMemoryPages() {
-  return memoryPages;
+function workModeScore(mode: WorkMode): number {
+  if (mode === "remote") return 2;
+  if (mode === "hybrid") return 1;
+  return 0;
 }
 
-export function setMemoryPages(pages: Page[]) {
-  memoryPages = pages;
+function sourceScore(job: Job): number {
+  return sourcePreferenceScore(job);
+}
+
+function postedTime(job: Job): number {
+  if (!job.postedDate) return 0;
+  const time = new Date(job.postedDate).getTime();
+  return Number.isNaN(time) ? 0 : time;
 }
 
 export function sortJobs(jobs: Job[]): Job[] {
@@ -170,6 +139,16 @@ export function sortJobs(jobs: Job[]): Job[] {
     const aEmpty = a.status === null ? 0 : 1;
     const bEmpty = b.status === null ? 0 : 1;
     if (aEmpty !== bEmpty) return aEmpty - bEmpty;
+
+    const postedDiff = postedTime(b) - postedTime(a);
+    if (postedDiff !== 0) return postedDiff;
+
+    const modeDiff = workModeScore(b.workMode) - workModeScore(a.workMode);
+    if (modeDiff !== 0) return modeDiff;
+
+    const sourceDiff = sourceScore(b) - sourceScore(a);
+    if (sourceDiff !== 0) return sourceDiff;
+
     const aLat = a.latencyDays ?? 9999;
     const bLat = b.latencyDays ?? 9999;
     return aLat - bLat;

@@ -1,5 +1,7 @@
 import {
   linkedinMaxPages,
+  linkedinMaxRetries,
+  linkedinRequestDelayMs,
   linkedinSearches,
   type LinkedInSearch,
 } from "../../../../config/linkedin";
@@ -23,6 +25,11 @@ export interface LinkedInJobCard {
   location: string;
   applyUrl: string;
   postedDate: string | null;
+}
+
+export interface LinkedInFetchResult {
+  jobs: SyncJobInput[];
+  warnings: string[];
 }
 
 function decodeHtml(value: string): string {
@@ -80,22 +87,41 @@ function linkedInSearchUrl(search: LinkedInSearch, start: number): string {
   return url.toString();
 }
 
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function fetchLinkedInHtml(url: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: {
-      Accept: "text/html",
-      "User-Agent": LINKEDIN_USER_AGENT,
-    },
-  });
-  if (!res.ok) {
-    throw new Error(`LinkedIn request failed (${res.status})`);
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < linkedinMaxRetries; attempt++) {
+    if (attempt > 0) {
+      await sleep(linkedinRequestDelayMs * attempt);
+    }
+
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Accept: "text/html",
+          "User-Agent": LINKEDIN_USER_AGENT,
+        },
+      });
+      if (!res.ok) {
+        throw new Error(`LinkedIn request failed (${res.status})`);
+      }
+      return res.text();
+    } catch (error) {
+      lastError =
+        error instanceof Error ? error : new Error(String(error));
+    }
   }
-  return res.text();
+
+  throw lastError ?? new Error("LinkedIn request failed");
 }
 
 function toSyncJob(card: LinkedInJobCard): SyncJobInput | null {
   if (!matchesRole(card.role)) return null;
-  if (!isWithinMaxAge(card.postedDate)) return null;
+  if (!isWithinMaxAge(card.postedDate, "LinkedIn")) return null;
 
   const location = formatLocation([card.location]);
   const workMode = inferWorkMode({ locationText: location });
@@ -114,9 +140,15 @@ function toSyncJob(card: LinkedInJobCard): SyncJobInput | null {
   };
 }
 
-export async function fetchLinkedIn(): Promise<SyncJobInput[]> {
+function searchLabel(search: LinkedInSearch): string {
+  const remote = search.remote ? " (remote)" : "";
+  return `"${search.keywords}" @ ${search.location}${remote}`;
+}
+
+export async function fetchLinkedIn(): Promise<LinkedInFetchResult> {
   const seen = new Set<string>();
   const results: SyncJobInput[] = [];
+  const warnings: string[] = [];
 
   for (const search of linkedinSearches) {
     for (let page = 0; page < linkedinMaxPages; page++) {
@@ -127,11 +159,12 @@ export async function fetchLinkedIn(): Promise<SyncJobInput[]> {
       try {
         html = await fetchLinkedInHtml(url);
       } catch (error) {
-        throw new Error(
-          `LinkedIn search "${search.keywords}" @ ${search.location}: ${
+        warnings.push(
+          `${searchLabel(search)} page ${page + 1}: ${
             error instanceof Error ? error.message : String(error)
           }`
         );
+        break;
       }
 
       const cards = parseLinkedInSearchHtml(html);
@@ -146,8 +179,15 @@ export async function fetchLinkedIn(): Promise<SyncJobInput[]> {
       }
 
       if (cards.length < 25) break;
+      await sleep(linkedinRequestDelayMs);
     }
+
+    await sleep(linkedinRequestDelayMs);
   }
 
-  return results;
+  if (results.length === 0 && warnings.length > 0) {
+    throw new Error(warnings.join("; "));
+  }
+
+  return { jobs: results, warnings };
 }

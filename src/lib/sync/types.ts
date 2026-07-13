@@ -21,3 +21,10 @@ export interface SyncResult {
   jobsRemovedDuplicates?: number;
   errors: string[];
 }
+
+export interface BoardFetchResult {
+  jobs: SyncJobInput[];
+  warnings?: string[];
+}
+
+export type BoardFetcherResult = SyncJobInput[] | BoardFetchResult;

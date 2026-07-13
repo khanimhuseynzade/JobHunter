@@ -53,8 +53,10 @@ That's it — **sync runs automatically every day** after deploy. Vercel Cron hi
 
 | Cron | Schedule (UTC) | What it syncs |
 |------|----------------|---------------|
-| `/api/cron/sync-boards` | 06:00 | All job boards (including LinkedIn) |
-| `/api/cron/sync-companies` | 06:30 | Company career pages |
+| `/api/cron/sync-all` | 06:00 | All job boards + company career pages |
+| `/api/cron/sync-all` | 13:00 | All job boards + company career pages (afternoon) |
+
+Board sync includes No Fluff Jobs, Just Join IT, Bulldogjob, We Work Remotely, Jobicy, RemoteOK, EU Remote Jobs, and LinkedIn.
 
 Vercel sets `CRON_SECRET` automatically for cron requests. No GitHub Actions setup, no manual runs.
 

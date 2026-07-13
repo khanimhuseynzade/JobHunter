@@ -1,7 +1,7 @@
 import "./load-env";
 import { getDb } from "@/lib/db";
-import { jobs, pages } from "@/lib/schema";
-import { seedJobs, seedPages } from "@/lib/seed";
+import { jobs } from "@/lib/schema";
+import { seedJobs } from "@/lib/seed";
 
 async function seed() {
   const db = getDb();
@@ -29,25 +29,8 @@ async function seed() {
         applyUrl: j.applyUrl,
         status: j.status,
         possiblyClosed: j.possiblyClosed,
-        pageId: j.pageId as `${string}-${string}-${string}-${string}-${string}` | null,
         firstSeenAt: j.firstSeenAt,
         lastSeenAt: j.lastSeenAt,
-      })
-      .onConflictDoNothing();
-  }
-
-  for (const p of seedPages) {
-    await db
-      .insert(pages)
-      .values({
-        id: p.id as `${string}-${string}-${string}-${string}-${string}`,
-        title: p.title,
-        body: p.body,
-        folder: p.folder,
-        linkedJobId: p.linkedJobId as `${string}-${string}-${string}-${string}-${string}` | null,
-        linkedCompany: p.linkedCompany,
-        createdAt: p.createdAt,
-        updatedAt: p.updatedAt,
       })
       .onConflictDoNothing();
   }

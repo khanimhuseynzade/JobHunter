@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import type { Job, JobStatus } from "@/types";
 import { WORK_MODE_LABELS } from "@/types";
 import { StatusDropdown } from "./StatusDropdown";
@@ -69,22 +68,14 @@ export function JobDetail({ job, onClose, onStatusChange }: JobDetailProps) {
           />
         </div>
 
-        <div className="flex gap-2">
-          <a
-            href={job.applyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-center text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Apply
-          </a>
-          <Link
-            href={`/pages?job=${job.id}`}
-            className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-center text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Open page
-          </Link>
-        </div>
+        <a
+          href={job.applyUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block w-full rounded-lg bg-blue-600 px-4 py-2.5 text-center text-sm font-medium text-white hover:bg-blue-700"
+        >
+          Apply
+        </a>
       </div>
     </>
   );

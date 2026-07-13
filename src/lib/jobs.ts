@@ -1,22 +1,13 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { jobs as jobsTable, pages as pagesTable } from "@/lib/schema";
+import { jobs as jobsTable } from "@/lib/schema";
 import {
   getMemoryJobs,
   setMemoryJobs,
   sortJobs,
 } from "@/lib/seed";
-import { cleanupDuplicateBoardJobs } from "@/lib/sync/cleanup-duplicates";
 import { dedupeBoardJobsByCompanyRole } from "@/lib/sync/company-role-duplicates";
-import type { Job, JobStatus } from "@/types";
-
-let cleanupStarted = false;
-
-function scheduleDuplicateCleanup(): void {
-  if (cleanupStarted) return;
-  cleanupStarted = true;
-  void cleanupDuplicateBoardJobs();
-}
+import type { Job, JobStatus, WorkMode } from "@/types";
 
 function rowToJob(row: typeof jobsTable.$inferSelect): Job {
   return {
@@ -33,43 +24,68 @@ function rowToJob(row: typeof jobsTable.$inferSelect): Job {
     applyUrl: row.applyUrl,
     status: row.status,
     possiblyClosed: row.possiblyClosed,
-    pageId: row.pageId,
     firstSeenAt: row.firstSeenAt,
     lastSeenAt: row.lastSeenAt,
   };
 }
 
-export async function fetchJobs(options?: {
-  showSkipped?: boolean;
-  showClosed?: boolean;
-}): Promise<Job[]> {
-  const db = getDb();
-  let list: Job[];
+function matchesQuery(job: Job, query: string): boolean {
+  const needle = query.toLowerCase().trim();
+  if (!needle) return true;
 
-  if (db) {
-    scheduleDuplicateCleanup();
+  return [
+    job.role,
+    job.company,
+    job.location,
+    job.sourceName,
+    job.applyUrl,
+  ].some((field) => field.toLowerCase().includes(needle));
+}
 
-    const [rows, pages] = await Promise.all([
-      db.select().from(jobsTable),
-      db.select({ linkedJobId: pagesTable.linkedJobId }).from(pagesTable),
-    ]);
-    const linkedPageJobIds = new Set(
-      pages.flatMap((page) => (page.linkedJobId ? [page.linkedJobId] : []))
-    );
-    list = dedupeBoardJobsByCompanyRole(rows.map(rowToJob), linkedPageJobIds);
-  } else {
-    list = dedupeBoardJobsByCompanyRole(getMemoryJobs());
+function applyJobFilters(
+  list: Job[],
+  options?: {
+    showSkipped?: boolean;
+    showClosed?: boolean;
+    q?: string;
+    workMode?: WorkMode;
   }
-
+): Job[] {
   let filtered = list;
+
   if (!options?.showSkipped) {
     filtered = filtered.filter((j) => j.status !== "skipped");
   }
   if (!options?.showClosed) {
     filtered = filtered.filter((j) => !j.possiblyClosed);
   }
+  if (options?.q?.trim()) {
+    filtered = filtered.filter((j) => matchesQuery(j, options.q!));
+  }
+  if (options?.workMode) {
+    filtered = filtered.filter((j) => j.workMode === options.workMode);
+  }
 
-  return sortJobs(filtered);
+  return filtered;
+}
+
+export async function fetchJobs(options?: {
+  showSkipped?: boolean;
+  showClosed?: boolean;
+  q?: string;
+  workMode?: WorkMode;
+}): Promise<Job[]> {
+  const db = getDb();
+  let list: Job[];
+
+  if (db) {
+    const rows = await db.select().from(jobsTable);
+    list = dedupeBoardJobsByCompanyRole(rows.map(rowToJob));
+  } else {
+    list = dedupeBoardJobsByCompanyRole(getMemoryJobs());
+  }
+
+  return sortJobs(applyJobFilters(list, options));
 }
 
 export async function updateJobStatus(

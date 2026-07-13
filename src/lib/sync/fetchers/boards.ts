@@ -1,4 +1,5 @@
 import type { SyncJobInput } from "../types";
+import { justJoinItCategories } from "../../../../config/boards";
 import {
   fetchJson,
   fetchText,
@@ -78,8 +79,6 @@ interface JobicyResponse {
   jobs?: JobicyJob[];
 }
 
-const JJIT_UX_CATEGORY = "ux";
-
 function nfjGroupKey(posting: NfjPosting): string {
   return `${posting.title}\u0000${posting.name}\u0000${posting.posted}`;
 }
@@ -107,7 +106,7 @@ export async function fetchNoFluffJobs(): Promise<SyncJobInput[]> {
     if (!matchesRole(posting.title)) continue;
 
     const postedDate = new Date(posting.posted).toISOString();
-    if (!isWithinMaxAge(postedDate)) continue;
+    if (!isWithinMaxAge(postedDate, "No Fluff Jobs")) continue;
 
     const groupKey = nfjGroupKey(posting);
     const group = byGroup.get(groupKey) ?? [];
@@ -167,8 +166,12 @@ export async function fetchNoFluffJobs(): Promise<SyncJobInput[]> {
   return results;
 }
 
-export async function fetchJustJoinIt(): Promise<SyncJobInput[]> {
-  const bySlug = new Map<string, { offer: JjitOffer; postedAt: string | null }>();
+const JJIT_CATEGORIES = justJoinItCategories;
+
+async function fetchJustJoinItCategory(
+  category: string,
+  bySlug: Map<string, { offer: JjitOffer; postedAt: string | null }>
+): Promise<void> {
   let from = 0;
   let totalItems = Infinity;
 
@@ -176,7 +179,7 @@ export async function fetchJustJoinIt(): Promise<SyncJobInput[]> {
     const url = new URL("https://justjoin.it/api/candidate-api/offers");
     url.searchParams.set("sortBy", "publishedAt");
     url.searchParams.set("orderBy", "descending");
-    url.searchParams.set("categories", JJIT_UX_CATEGORY);
+    url.searchParams.set("categories", category);
     url.searchParams.set("from", String(from));
 
     const page = await fetchJson<JjitResponse>(url.toString());
@@ -185,9 +188,17 @@ export async function fetchJustJoinIt(): Promise<SyncJobInput[]> {
     const batch = page.data ?? [];
     if (batch.length === 0) break;
 
+    let outsideAgeCount = 0;
+
     for (const offer of batch) {
-      const slugBase = jjitSlugBase(offer.slug);
       const postedDate = parseIsoDate(offer.publishedAt);
+      if (!isWithinMaxAge(postedDate, "Just Join IT")) {
+        outsideAgeCount++;
+        continue;
+      }
+      if (!matchesRole(offer.title)) continue;
+
+      const slugBase = jjitSlugBase(offer.slug);
       const existing = bySlug.get(slugBase);
       if (
         existing &&
@@ -201,9 +212,20 @@ export async function fetchJustJoinIt(): Promise<SyncJobInput[]> {
       bySlug.set(slugBase, { offer, postedAt: postedDate });
     }
 
+    // Sorted by publishedAt desc — stop when a full page is outside maxAge.
+    if (outsideAgeCount === batch.length) break;
+
     const nextCursor = page.meta.next?.cursor;
     if (nextCursor == null || nextCursor === from) break;
     from = nextCursor;
+  }
+}
+
+export async function fetchJustJoinIt(): Promise<SyncJobInput[]> {
+  const bySlug = new Map<string, { offer: JjitOffer; postedAt: string | null }>();
+
+  for (const category of JJIT_CATEGORIES) {
+    await fetchJustJoinItCategory(category, bySlug);
   }
 
   const results: SyncJobInput[] = [];

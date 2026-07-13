@@ -10,7 +10,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Board",
+  title: "Job Hunter",
   description: "Personal job board",
 };
 
