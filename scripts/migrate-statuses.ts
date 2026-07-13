@@ -18,11 +18,12 @@ interface StatusRow {
 
 async function fetchStatusRows(url: string): Promise<StatusRow[]> {
   const sql = neon(url);
-  return sql`
+  const rows = await sql`
     SELECT external_key, role, company, status
     FROM jobs
     WHERE status IS NOT NULL
-  ` as Promise<StatusRow[]>;
+  `;
+  return rows as StatusRow[];
 }
 
 async function main() {
