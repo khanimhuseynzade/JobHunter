@@ -12,6 +12,7 @@ const OPTIONS: { value: JobStatus | null; label: string }[] = [
   { value: "reached_out", label: STATUS_LABELS.reached_out },
   { value: "rejected", label: STATUS_LABELS.rejected },
   { value: "expired", label: STATUS_LABELS.expired },
+  { value: "error", label: STATUS_LABELS.error },
 ];
 
 interface StatusDropdownProps {

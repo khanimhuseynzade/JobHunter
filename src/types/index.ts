@@ -3,7 +3,8 @@ export type JobStatus =
   | "skipped"
   | "reached_out"
   | "rejected"
-  | "expired";
+  | "expired"
+  | "error";
 
 export type SourceType = "board" | "company";
 
@@ -33,6 +34,7 @@ export const STATUS_LABELS: Record<JobStatus, string> = {
   reached_out: "Reached out",
   rejected: "Rejected",
   expired: "Expired",
+  error: "Error",
 };
 
 export const WORK_MODE_LABELS: Record<WorkMode, string> = {

@@ -9,7 +9,8 @@ type JobStatus =
   | "skipped"
   | "reached_out"
   | "rejected"
-  | "expired";
+  | "expired"
+  | "error";
 
 interface JsonJob {
   external_key: string;

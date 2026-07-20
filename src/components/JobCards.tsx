@@ -3,6 +3,7 @@
 import type { Job, JobStatus } from "@/types";
 import { WORK_MODE_LABELS } from "@/types";
 import { isJobPostedToday } from "@/lib/job-dates";
+import { formatDisplayLocation } from "@/lib/location";
 import { StatusDropdown } from "./StatusDropdown";
 import { PostedTodayBadge } from "./PostedTodayBadge";
 
@@ -60,6 +61,7 @@ export function JobCards({ jobs, onStatusChange, onSelect }: JobCardsProps) {
             </a>
           </div>
           <p className="mb-3 text-xs text-gray-500">
+            {formatDisplayLocation(job.location)} ·{" "}
             {WORK_MODE_LABELS[job.workMode]} · {formatLatency(job.latencyDays)}
           </p>
           <div onClick={(e) => e.stopPropagation()}>

@@ -3,6 +3,7 @@
 import type { Job, JobStatus } from "@/types";
 import { WORK_MODE_LABELS } from "@/types";
 import { isJobPostedToday } from "@/lib/job-dates";
+import { formatDisplayLocation } from "@/lib/location";
 import { StatusDropdown } from "./StatusDropdown";
 import { PostedTodayBadge } from "./PostedTodayBadge";
 
@@ -40,7 +41,9 @@ export function JobDetail({ job, onClose, onStatusChange }: JobDetailProps) {
         <dl className="mb-6 space-y-2 text-sm">
           <div className="flex justify-between">
             <dt className="text-gray-500">Location</dt>
-            <dd className="text-black">{job.location}</dd>
+            <dd className="text-black">
+              {formatDisplayLocation(job.location)}
+            </dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-gray-500">Work mode</dt>

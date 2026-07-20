@@ -7,7 +7,8 @@ type JobStatus =
   | "skipped"
   | "reached_out"
   | "rejected"
-  | "expired";
+  | "expired"
+  | "error";
 
 interface StatusRow {
   external_key: string;
