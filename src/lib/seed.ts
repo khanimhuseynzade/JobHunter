@@ -157,9 +157,11 @@ export function sortJobs(jobs: Job[]): Job[] {
 
 export function getLastSyncLabel(isoDate?: string | null): string {
   const d = isoDate ? new Date(isoDate) : new Date();
-  return d.toLocaleDateString("en-GB", {
+  return d.toLocaleString("en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
