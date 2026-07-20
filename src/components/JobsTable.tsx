@@ -4,6 +4,7 @@ import type { Job, JobStatus } from "@/types";
 import { WORK_MODE_LABELS } from "@/types";
 import type { JobSortKey, SortDirection } from "@/lib/job-sort";
 import { isJobPostedToday } from "@/lib/job-dates";
+import { formatDisplayLocation } from "@/lib/location";
 import { StatusDropdown } from "./StatusDropdown";
 import { PostedTodayBadge } from "./PostedTodayBadge";
 
@@ -105,6 +106,13 @@ export function JobsTable({
               onSortChange={onSortChange}
             />
             <SortHeader
+              label="Location"
+              column="location"
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSortChange={onSortChange}
+            />
+            <SortHeader
               label="Mode"
               column="workMode"
               sortKey={sortKey}
@@ -146,6 +154,9 @@ export function JobsTable({
                 </span>
               </td>
               <td className="px-4 py-3 text-gray-700">{job.company}</td>
+              <td className="px-4 py-3 text-gray-600">
+                {formatDisplayLocation(job.location)}
+              </td>
               <td className="px-4 py-3 text-gray-600">
                 {WORK_MODE_LABELS[job.workMode]}
               </td>

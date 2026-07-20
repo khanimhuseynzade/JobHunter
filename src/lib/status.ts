@@ -11,6 +11,7 @@ export const STATUS_CHIP_CLASS: Record<
   reached_out: "chip-reached_out",
   rejected: "chip-rejected",
   expired: "chip-expired",
+  error: "chip-error",
 };
 
 export function statusLabel(status: JobStatus | null): string {

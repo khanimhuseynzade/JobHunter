@@ -1,9 +1,11 @@
 import type { Job, JobStatus, WorkMode } from "@/types";
+import { formatDisplayLocation } from "@/lib/location";
 
 export type JobSortKey =
   | "status"
   | "role"
   | "company"
+  | "location"
   | "workMode"
   | "latencyDays";
 
@@ -14,7 +16,8 @@ const STATUS_ORDER: Record<JobStatus, number> = {
   reached_out: 2,
   rejected: 3,
   expired: 4,
-  skipped: 5,
+  error: 5,
+  skipped: 6,
 };
 
 const WORK_MODE_ORDER: Record<WorkMode, number> = {
@@ -57,6 +60,13 @@ export function sortJobList(
         result = a.company.localeCompare(b.company, undefined, {
           sensitivity: "base",
         });
+        break;
+      case "location":
+        result = formatDisplayLocation(a.location).localeCompare(
+          formatDisplayLocation(b.location),
+          undefined,
+          { sensitivity: "base" }
+        );
         break;
       case "workMode":
         result = WORK_MODE_ORDER[a.workMode] - WORK_MODE_ORDER[b.workMode];
