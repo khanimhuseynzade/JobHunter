@@ -55,6 +55,7 @@ That's it — **sync runs automatically every day** after deploy. Vercel Cron hi
 |------|----------------|---------------|
 | `/api/cron/sync-all` | 06:00 | All job boards + company career pages |
 | `/api/cron/sync-all` | 13:00 | All job boards + company career pages (afternoon) |
+| `/api/cron/check-email` | 14:00 | Reads Gmail, suggests status changes (see below) |
 
 Board sync includes No Fluff Jobs, Just Join IT, Bulldogjob, We Work Remotely, Jobicy, RemoteOK, EU Remote Jobs, and LinkedIn.
 
@@ -68,6 +69,62 @@ To trigger a sync immediately after deploy: Vercel → **Settings → Cron Jobs*
 npm run sync:boards
 npm run sync:companies
 ```
+
+## 3. Email → status suggestions (optional)
+
+Once a day a cron reads your Gmail, uses an LLM to match recruiter emails to jobs
+you've marked **Applied** or **Reached out**, and creates **suggestions** for a
+status change (e.g. Applied → Rejected). Suggestions appear in a panel on the
+Jobs page with **Accept** / **Dismiss** — nothing is applied automatically.
+
+### One-time Google setup
+
+1. In [Google Cloud Console](https://console.cloud.google.com): create a project and enable the **Gmail API**.
+2. Configure the **OAuth consent screen** (External). Add your own Google account as a **test user**. Note: in "testing" mode Google expires refresh tokens after ~7 days — publish the app to avoid this.
+3. Create an **OAuth client** of type **Web application** and add the redirect URI: `http://localhost:5555/oauth2callback`.
+4. Put the client id/secret in `.env`:
+
+```bash
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+```
+
+5. Run the one-time auth flow, open the printed URL, approve, and copy the token it prints into `.env`:
+
+```bash
+npm run gmail:auth
+# → GOOGLE_REFRESH_TOKEN=...
+```
+
+6. Add a free Groq key (used to classify emails, no credit card) from [console.groq.com/keys](https://console.groq.com/keys):
+
+```bash
+GROQ_API_KEY=...
+# optional: GROQ_MODEL=openai/gpt-oss-20b   EMAIL_LOOKBACK=newer_than:2d
+```
+
+7. Create the suggestions table:
+
+```bash
+npm run db:migrate:email-suggestions   # or: npm run db:push
+```
+
+### Deploy
+
+Add `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, and
+`GROQ_API_KEY` to your Vercel project env. The `/api/cron/check-email` cron then
+runs daily. If the Gmail env vars are missing, the cron is a safe no-op.
+
+### Run the email check locally
+
+```bash
+npm run email:check
+```
+
+Only jobs marked **Applied** or **Reached out** are matched. To limit LLM calls,
+an email is only sent to the model if it mentions one of those companies; plain
+"application received" acknowledgements are ignored, so only real progress or a
+rejection creates a suggestion.
 
 ## Configuration
 
@@ -251,6 +308,8 @@ Dedup runs at fetch time (`dedupeSyncJobs`) and in the DB (`cleanupDuplicateBoar
 
 **`sync_logs`:** `id`, `search_type`, `ran_at`, `jobs_found`, `jobs_new`, `errors`
 
+**`email_suggestions`:** `id`, `gmail_message_id` (unique), `job_id` (→ jobs), `from_email`, `subject`, `received_at`, `snippet`, `suggested_status`, `confidence`, `reasoning`, `state` (pending | accepted | dismissed), `created_at`
+
 ## UI
 
 - **Jobs page** (`/jobs`) — table (desktop) + cards (mobile)
@@ -268,7 +327,10 @@ Dedup runs at fetch time (`dedupeSyncJobs`) and in the DB (`cleanupDuplicateBoar
 | `/api/jobs` | GET | List jobs (`showSkipped`, `showClosed`, `q`, `workMode`) |
 | `/api/jobs` | PATCH | Update status `{ id, status }` |
 | `/api/sync` | GET | Last sync timestamps |
+| `/api/suggestions` | GET | Pending email status suggestions |
+| `/api/suggestions` | PATCH | Resolve a suggestion `{ id, action: "accept" \| "dismiss" }` |
 | `/api/cron/sync-all` | GET | Run board + company sync (cron auth via `CRON_SECRET`) |
+| `/api/cron/check-email` | GET | Read Gmail → create status suggestions (cron auth via `CRON_SECRET`) |
 
 ## Customization
 

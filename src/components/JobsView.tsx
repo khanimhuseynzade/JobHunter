@@ -13,6 +13,7 @@ import {
 import { JobsTable } from "./JobsTable";
 import { JobCards } from "./JobCards";
 import { JobDetail } from "./JobDetail";
+import { SuggestionsPanel, type EmailSuggestion } from "./SuggestionsPanel";
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -52,6 +53,7 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
   const [sortDir, setSortDir] = useState<SortDirection>("asc");
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<EmailSuggestion[]>([]);
 
   const debouncedQuery = useDebouncedValue(query, 300);
 
@@ -72,6 +74,13 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
       .then((res) => (res.ok ? res.json() : null))
       .then((sync) => {
         if (sync) setLastSync(sync.latest);
+      })
+      .catch(() => {});
+
+    fetch("/api/suggestions")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (Array.isArray(data)) setSuggestions(data);
       })
       .catch(() => {});
   }, []);
@@ -133,6 +142,23 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
     }
   }
 
+  function handleSuggestionResolved(
+    id: string,
+    action: "accept" | "dismiss",
+    jobId: string | null,
+    status: JobStatus | null
+  ) {
+    setSuggestions((prev) => prev.filter((s) => s.id !== id));
+    if (action === "accept" && jobId && status) {
+      setJobs((prev) =>
+        prev.map((j) => (j.id === jobId ? { ...j, status } : j))
+      );
+      if (selectedJob?.id === jobId) {
+        setSelectedJob((prev) => (prev ? { ...prev, status } : prev));
+      }
+    }
+  }
+
   return (
     <div>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -183,6 +209,11 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
           </label>
         </div>
       </div>
+
+      <SuggestionsPanel
+        suggestions={suggestions}
+        onResolved={handleSuggestionResolved}
+      />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <input

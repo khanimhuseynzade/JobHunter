@@ -13,6 +13,9 @@
     "db:migrate:expired-status": "tsx scripts/migrate-add-expired-status.ts",
     "db:migrate:error-status": "tsx scripts/migrate-add-error-status.ts",
     "db:migrate:statuses": "tsx scripts/migrate-statuses.ts",
+    "db:migrate:email-suggestions": "tsx scripts/migrate-add-email-suggestions.ts",
+    "gmail:auth": "tsx scripts/gmail-auth.ts",
+    "email:check": "tsx scripts/check-email.ts",
     "import:statuses": "tsx scripts/import-statuses-from-json.ts",
     "db:seed": "tsx scripts/seed.ts",
     "sync:boards": "tsx scripts/sync-boards.ts",
@@ -21,11 +24,15 @@
     "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
+    "@ai-sdk/groq": "^4.0.13",
     "@neondatabase/serverless": "^0.10.4",
+    "ai": "^7.0.32",
     "drizzle-orm": "^0.38.3",
+    "googleapis": "^173.0.0",
     "next": "^15.1.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",

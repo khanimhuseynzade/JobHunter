@@ -55,3 +55,24 @@ export const syncLogs = pgTable("sync_logs", {
   jobsNew: integer("jobs_new").notNull().default(0),
   errors: text("errors"),
 });
+
+export const suggestionStateEnum = pgEnum("suggestion_state", [
+  "pending",
+  "accepted",
+  "dismissed",
+]);
+
+export const emailSuggestions = pgTable("email_suggestions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  gmailMessageId: text("gmail_message_id").notNull().unique(),
+  jobId: uuid("job_id").references(() => jobs.id, { onDelete: "cascade" }),
+  fromEmail: text("from_email").notNull().default(""),
+  subject: text("subject").notNull().default(""),
+  receivedAt: timestamp("received_at", { mode: "string" }),
+  snippet: text("snippet").notNull().default(""),
+  suggestedStatus: jobStatusEnum("suggested_status"),
+  confidence: integer("confidence").notNull().default(0),
+  reasoning: text("reasoning").notNull().default(""),
+  state: suggestionStateEnum("state").notNull().default("pending"),
+  createdAt: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
+});
