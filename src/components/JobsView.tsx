@@ -54,6 +54,8 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<EmailSuggestion[]>([]);
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  const [checkEmailMsg, setCheckEmailMsg] = useState<string | null>(null);
 
   const debouncedQuery = useDebouncedValue(query, 300);
 
@@ -142,6 +144,33 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
     }
   }
 
+  async function handleCheckEmail() {
+    setCheckingEmail(true);
+    setCheckEmailMsg(null);
+    try {
+      const res = await fetch("/api/check-email", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        const listRes = await fetch("/api/suggestions");
+        if (listRes.ok) {
+          const list = await listRes.json();
+          if (Array.isArray(list)) setSuggestions(list);
+        }
+        setCheckEmailMsg(
+          data.skipped
+            ? data.skipped
+            : `Checked ${data.messagesNew ?? 0} new email${data.messagesNew === 1 ? "" : "s"} · ${data.suggestionsCreated ?? 0} new suggestion${data.suggestionsCreated === 1 ? "" : "s"}`
+        );
+      } else {
+        setCheckEmailMsg(data.error ?? "Email check failed");
+      }
+    } catch {
+      setCheckEmailMsg("Email check failed");
+    } finally {
+      setCheckingEmail(false);
+    }
+  }
+
   function handleSuggestionResolved(
     id: string,
     action: "accept" | "dismiss",
@@ -188,7 +217,7 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
             Last updated: {getLastSyncLabel(lastSync)}
           </p>
         </div>
-        <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
           <label className="flex cursor-pointer items-center gap-2">
             <input
               type="checkbox"
@@ -207,6 +236,19 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
             />
             Show possibly closed
           </label>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCheckEmail}
+              disabled={checkingEmail}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+            >
+              {checkingEmail ? "Checking email…" : "Check email"}
+            </button>
+            {checkEmailMsg ? (
+              <span className="text-xs text-gray-400">{checkEmailMsg}</span>
+            ) : null}
+          </div>
         </div>
       </div>
 

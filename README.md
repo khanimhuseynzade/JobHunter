@@ -329,6 +329,7 @@ Dedup runs at fetch time (`dedupeSyncJobs`) and in the DB (`cleanupDuplicateBoar
 | `/api/sync` | GET | Last sync timestamps |
 | `/api/suggestions` | GET | Pending email status suggestions |
 | `/api/suggestions` | PATCH | Resolve a suggestion `{ id, action: "accept" \| "dismiss" }` |
+| `/api/check-email` | POST | Manually run the email check now (the "Check email" button) |
 | `/api/cron/sync-all` | GET | Run board + company sync (cron auth via `CRON_SECRET`) |
 | `/api/cron/check-email` | GET | Read Gmail → create status suggestions (cron auth via `CRON_SECRET`) |
 
