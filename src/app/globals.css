@@ -33,11 +33,6 @@
   --color-dusty-blue-200: #c7d6df;
   --color-dusty-blue-text: #3e5a6c;
 
-  --color-ochre: #c68a3d;
-  --color-ochre-100: #f6e8d2;
-  --color-ochre-200: #ead1a8;
-  --color-ochre-text: #7a5220;
-
   --color-plum: #7c5372;
   --color-plum-100: #efe1ec;
   --color-plum-200: #dec3d8;
@@ -103,9 +98,9 @@ body {
 }
 
 .chip-expired {
-  background-color: var(--color-ochre-100);
-  color: var(--color-ochre-text);
-  border: 1px solid var(--color-ochre-200);
+  background-color: var(--color-gray-100);
+  color: var(--color-gray-500);
+  border: 1px solid var(--color-gray-200);
 }
 
 .chip-error {

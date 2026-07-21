@@ -67,13 +67,13 @@ export function SuggestionsPanel({
   if (suggestions.length === 0) return null;
 
   return (
-    <div className="mb-6 rounded-2xl border border-ochre-200 bg-ochre-100/60 p-4">
+    <div className="mb-6 rounded-2xl border border-gray-200 bg-gray-50 p-4">
       <div className="mb-3 flex items-center gap-2">
-        <h2 className="text-sm font-semibold text-ochre-text">
+        <h2 className="text-sm font-semibold text-black">
           {suggestions.length} email suggestion
           {suggestions.length === 1 ? "" : "s"}
         </h2>
-        <span className="text-xs text-ochre-text/70">
+        <span className="text-xs text-gray-500">
           From your inbox — review before applying
         </span>
       </div>
@@ -82,7 +82,7 @@ export function SuggestionsPanel({
         {suggestions.map((s) => (
           <li
             key={s.id}
-            className="flex flex-col gap-3 rounded-xl border border-ochre-200/70 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
+            className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
           >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2 text-sm">

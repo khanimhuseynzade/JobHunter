@@ -60,3 +60,11 @@ export function IconCheck({ className }: IconProps) {
     </svg>
   );
 }
+
+export function IconFilter({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden>
+      <path d="M4 6h16M7 12h10M10 18h4" />
+    </svg>
+  );
+}

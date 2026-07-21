@@ -12,8 +12,8 @@ import {
 } from "@/lib/job-sort";
 import { JobsTable } from "./JobsTable";
 import { JobCards } from "./JobCards";
-import { JobDetail } from "./JobDetail";
 import { SuggestionsPanel, type EmailSuggestion } from "./SuggestionsPanel";
+import { FiltersMenu } from "./FiltersMenu";
 import { IconMail, IconSearch } from "./icons";
 
 const SORT_KEYS: JobSortKey[] = [
@@ -61,7 +61,6 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
   const [workMode, setWorkMode] = useState<WorkMode | "">("");
   const [sortKey, setSortKey] = useState<JobSortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDirection>("asc");
-  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<EmailSuggestion[]>([]);
   const [checkingEmail, setCheckingEmail] = useState(false);
@@ -170,6 +169,7 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
       total: jobs.length,
       addedToday: jobs.filter((job) => isToday(job.firstSeenAt)).length,
       applied: jobs.filter((job) => job.status === "applied").length,
+      rejected: jobs.filter((job) => job.status === "rejected").length,
     }),
     [jobs]
   );
@@ -194,9 +194,6 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
     if (res.ok) {
       const updated = await res.json();
       setJobs((prev) => prev.map((j) => (j.id === id ? updated : j)));
-      if (selectedJob?.id === id) {
-        setSelectedJob(updated);
-      }
       if (!showSkipped && status === "skipped") {
         setJobs((prev) => prev.filter((j) => j.id !== id));
       }
@@ -245,9 +242,6 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
       setJobs((prev) =>
         prev.map((j) => (j.id === jobId ? { ...j, status } : j))
       );
-      if (selectedJob?.id === jobId) {
-        setSelectedJob((prev) => (prev ? { ...prev, status } : prev));
-      }
     }
   }
 
@@ -263,6 +257,8 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
             <span>{jobStats.addedToday} added today</span>
             <span aria-hidden>·</span>
             <span>{jobStats.applied} applied</span>
+            <span aria-hidden>·</span>
+            <span>{jobStats.rejected} rejected</span>
             {hasLocalFilter && visibleJobs.length !== jobs.length ? (
               <>
                 <span aria-hidden>·</span>
@@ -297,7 +293,7 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
         onResolved={handleSuggestionResolved}
       />
 
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative w-full sm:flex-1">
           <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
@@ -308,39 +304,27 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
             className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-3 text-sm text-black placeholder:text-gray-400"
           />
         </div>
-        <select
-          value={workMode}
-          onChange={(e) => setWorkMode(e.target.value as WorkMode | "")}
-          className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-black sm:max-w-[180px]"
-        >
-          <option value="">All work modes</option>
-          {(Object.entries(WORK_MODE_LABELS) as [WorkMode, string][]).map(
-            ([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            )
-          )}
-        </select>
-        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-          <label className="flex cursor-pointer items-center gap-2">
-            <input
-              type="checkbox"
-              checked={showSkipped}
-              onChange={(e) => setShowSkipped(e.target.checked)}
-              className="accent-black"
-            />
-            Show skipped
-          </label>
-          <label className="flex cursor-pointer items-center gap-2">
-            <input
-              type="checkbox"
-              checked={showClosed}
-              onChange={(e) => setShowClosed(e.target.checked)}
-              className="accent-black"
-            />
-            Show possibly closed
-          </label>
+        <div className="flex gap-3">
+          <select
+            value={workMode}
+            onChange={(e) => setWorkMode(e.target.value as WorkMode | "")}
+            className="flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-black sm:max-w-[180px]"
+          >
+            <option value="">All work modes</option>
+            {(Object.entries(WORK_MODE_LABELS) as [WorkMode, string][]).map(
+              ([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              )
+            )}
+          </select>
+          <FiltersMenu
+            showSkipped={showSkipped}
+            onShowSkippedChange={setShowSkipped}
+            showClosed={showClosed}
+            onShowClosedChange={setShowClosed}
+          />
         </div>
       </div>
 
@@ -354,26 +338,13 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
             sortDir={sortDir}
             onSortChange={handleSortChange}
             onStatusChange={handleStatusChange}
-            onSelect={setSelectedJob}
           />
         </div>
 
         <div className="md:hidden">
-          <JobCards
-            jobs={visibleJobs}
-            onStatusChange={handleStatusChange}
-            onSelect={setSelectedJob}
-          />
+          <JobCards jobs={visibleJobs} onStatusChange={handleStatusChange} />
         </div>
       </div>
-
-      {selectedJob && (
-        <JobDetail
-          job={selectedJob}
-          onClose={() => setSelectedJob(null)}
-          onStatusChange={handleStatusChange}
-        />
-      )}
     </div>
   );
 }
