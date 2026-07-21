@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { JobStatus } from "@/types";
 import { STATUS_LABELS } from "@/types";
 import { statusChipClass, statusLabel } from "@/lib/status";
+import { IconChevronDown } from "./icons";
 
 const OPTIONS: { value: JobStatus | null; label: string }[] = [
   { value: null, label: "—" },
@@ -47,14 +48,14 @@ export function StatusDropdown({
           e.stopPropagation();
           setOpen(!open);
         }}
-        className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-opacity hover:opacity-80 ${statusChipClass(status)} ${compact ? "min-w-[88px] justify-center" : "min-w-[100px] justify-between"}`}
+        className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors duration-200 hover:opacity-80 ${statusChipClass(status)} ${compact ? "min-w-[88px] justify-center" : "min-w-[100px] justify-between"}`}
       >
         <span>{statusLabel(status)}</span>
-        <span className="text-[10px] opacity-60">▾</span>
+        <IconChevronDown className="h-3 w-3 opacity-60" />
       </button>
 
       {open && (
-        <div className="absolute left-0 z-20 mt-1 min-w-[140px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+        <div className="absolute left-0 z-20 mt-1 min-w-[140px] overflow-hidden rounded-xl border border-gray-200 bg-white">
           {OPTIONS.map((opt) => (
             <button
               key={opt.label}

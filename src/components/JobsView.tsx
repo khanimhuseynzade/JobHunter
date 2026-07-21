@@ -14,6 +14,16 @@ import { JobsTable } from "./JobsTable";
 import { JobCards } from "./JobCards";
 import { JobDetail } from "./JobDetail";
 import { SuggestionsPanel, type EmailSuggestion } from "./SuggestionsPanel";
+import { IconMail, IconSearch } from "./icons";
+
+const SORT_KEYS: JobSortKey[] = [
+  "status",
+  "role",
+  "company",
+  "location",
+  "workMode",
+  "latencyDays",
+];
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -56,6 +66,7 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
   const [suggestions, setSuggestions] = useState<EmailSuggestion[]>([]);
   const [checkingEmail, setCheckingEmail] = useState(false);
   const [checkEmailMsg, setCheckEmailMsg] = useState<string | null>(null);
+  const [loadingJobs, setLoadingJobs] = useState(false);
 
   const debouncedQuery = useDebouncedValue(query, 300);
 
@@ -66,10 +77,48 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
     if (debouncedQuery) params.set("q", debouncedQuery);
     if (workMode) params.set("workMode", workMode);
 
-    const jobsRes = await fetch(`/api/jobs?${params}`);
-    const data = await jobsRes.json();
-    setJobs(data);
+    setLoadingJobs(true);
+    try {
+      const jobsRes = await fetch(`/api/jobs?${params}`);
+      const data = await jobsRes.json();
+      setJobs(data);
+    } finally {
+      setLoadingJobs(false);
+    }
   }, [showSkipped, showClosed, debouncedQuery, workMode]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q");
+    const mode = params.get("workMode");
+    const sort = params.get("sort");
+    const dir = params.get("dir");
+
+    if (q) setQuery(q);
+    if (mode && mode in WORK_MODE_LABELS) setWorkMode(mode as WorkMode);
+    if (sort && (SORT_KEYS as string[]).includes(sort)) {
+      setSortKey(sort as JobSortKey);
+    }
+    if (dir === "asc" || dir === "desc") setSortDir(dir);
+    if (params.get("showSkipped") === "true") setShowSkipped(true);
+    if (params.get("showClosed") === "true") setShowClosed(true);
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (debouncedQuery) params.set("q", debouncedQuery);
+    if (workMode) params.set("workMode", workMode);
+    if (sortKey) {
+      params.set("sort", sortKey);
+      params.set("dir", sortDir);
+    }
+    if (showSkipped) params.set("showSkipped", "true");
+    if (showClosed) params.set("showClosed", "true");
+
+    const qs = params.toString();
+    const nextUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    window.history.replaceState(null, "", nextUrl);
+  }, [debouncedQuery, workMode, sortKey, sortDir, showSkipped, showClosed]);
 
   useEffect(() => {
     fetch("/api/sync")
@@ -82,10 +131,20 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
     fetch("/api/suggestions")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (Array.isArray(data)) setSuggestions(data);
+        if (Array.isArray(data)) {
+          setSuggestions(
+            [...data].sort((a, b) => b.confidence - a.confidence)
+          );
+        }
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!checkEmailMsg) return;
+    const id = setTimeout(() => setCheckEmailMsg(null), 6000);
+    return () => clearTimeout(id);
+  }, [checkEmailMsg]);
 
   const skipInitialJobsFetch = useRef(true);
   useEffect(() => {
@@ -154,7 +213,11 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
         const listRes = await fetch("/api/suggestions");
         if (listRes.ok) {
           const list = await listRes.json();
-          if (Array.isArray(list)) setSuggestions(list);
+          if (Array.isArray(list)) {
+            setSuggestions(
+              [...list].sort((a, b) => b.confidence - a.confidence)
+            );
+          }
         }
         setCheckEmailMsg(
           data.skipped
@@ -190,65 +253,42 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
 
   return (
     <div>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xl font-semibold text-black">
-            <span>{jobStats.total} total</span>
-            <span className="font-normal text-gray-300" aria-hidden>
-              ·
-            </span>
+          <p className="text-sm text-gray-500">Jobs tracked</p>
+          <p className="text-5xl font-bold leading-none tracking-tight text-black">
+            {jobStats.total}
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
             <span>{jobStats.addedToday} added today</span>
-            <span className="font-normal text-gray-300" aria-hidden>
-              ·
-            </span>
+            <span aria-hidden>·</span>
             <span>{jobStats.applied} applied</span>
             {hasLocalFilter && visibleJobs.length !== jobs.length ? (
               <>
-                <span className="font-normal text-gray-300" aria-hidden>
-                  ·
-                </span>
-                <span className="text-base font-normal text-gray-500">
-                  {visibleJobs.length} matching
-                </span>
+                <span aria-hidden>·</span>
+                <span>{visibleJobs.length} matching</span>
               </>
             ) : null}
-          </h1>
-          <p className="text-sm text-gray-500">
+          </div>
+          <p className="mt-1 text-xs text-gray-400">
             Last updated: {getLastSyncLabel(lastSync)}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-          <label className="flex cursor-pointer items-center gap-2">
-            <input
-              type="checkbox"
-              checked={showSkipped}
-              onChange={(e) => setShowSkipped(e.target.checked)}
-              className="accent-blue-600"
-            />
-            Show skipped
-          </label>
-          <label className="flex cursor-pointer items-center gap-2">
-            <input
-              type="checkbox"
-              checked={showClosed}
-              onChange={(e) => setShowClosed(e.target.checked)}
-              className="accent-blue-600"
-            />
-            Show possibly closed
-          </label>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleCheckEmail}
-              disabled={checkingEmail}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
-            >
-              {checkingEmail ? "Checking email…" : "Check email"}
-            </button>
-            {checkEmailMsg ? (
-              <span className="text-xs text-gray-400">{checkEmailMsg}</span>
-            ) : null}
-          </div>
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <button
+            type="button"
+            onClick={handleCheckEmail}
+            disabled={checkingEmail}
+            className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-black transition-colors hover:bg-gray-50 disabled:opacity-50"
+          >
+            <IconMail className="h-3.5 w-3.5" />
+            {checkingEmail ? "Checking email…" : "Check email"}
+          </button>
+          {checkEmailMsg ? (
+            <span className="text-xs text-gray-400 transition-opacity">
+              {checkEmailMsg}
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -257,18 +297,21 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
         onResolved={handleSuggestionResolved}
       />
 
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row">
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search role, company, location…"
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black placeholder:text-gray-400"
-        />
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="relative w-full sm:flex-1">
+          <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search role, company, location…"
+            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-3 text-sm text-black placeholder:text-gray-400"
+          />
+        </div>
         <select
           value={workMode}
           onChange={(e) => setWorkMode(e.target.value as WorkMode | "")}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm text-black sm:max-w-[180px]"
+          className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-black sm:max-w-[180px]"
         >
           <option value="">All work modes</option>
           {(Object.entries(WORK_MODE_LABELS) as [WorkMode, string][]).map(
@@ -279,25 +322,49 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
             )
           )}
         </select>
+        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={showSkipped}
+              onChange={(e) => setShowSkipped(e.target.checked)}
+              className="accent-black"
+            />
+            Show skipped
+          </label>
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={showClosed}
+              onChange={(e) => setShowClosed(e.target.checked)}
+              className="accent-black"
+            />
+            Show possibly closed
+          </label>
+        </div>
       </div>
 
-      <div className="hidden md:block">
-        <JobsTable
-          jobs={visibleJobs}
-          sortKey={sortKey}
-          sortDir={sortDir}
-          onSortChange={handleSortChange}
-          onStatusChange={handleStatusChange}
-          onSelect={setSelectedJob}
-        />
-      </div>
+      <div
+        className={`transition-opacity duration-200 ${loadingJobs ? "opacity-50" : ""}`}
+      >
+        <div className="hidden md:block">
+          <JobsTable
+            jobs={visibleJobs}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSortChange={handleSortChange}
+            onStatusChange={handleStatusChange}
+            onSelect={setSelectedJob}
+          />
+        </div>
 
-      <div className="md:hidden">
-        <JobCards
-          jobs={visibleJobs}
-          onStatusChange={handleStatusChange}
-          onSelect={setSelectedJob}
-        />
+        <div className="md:hidden">
+          <JobCards
+            jobs={visibleJobs}
+            onStatusChange={handleStatusChange}
+            onSelect={setSelectedJob}
+          />
+        </div>
       </div>
 
       {selectedJob && (

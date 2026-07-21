@@ -1,11 +1,14 @@
 "use client";
 
+import { useEffect } from "react";
 import type { Job, JobStatus } from "@/types";
 import { WORK_MODE_LABELS } from "@/types";
 import { isJobPostedToday } from "@/lib/job-dates";
 import { formatDisplayLocation } from "@/lib/location";
 import { StatusDropdown } from "./StatusDropdown";
 import { PostedTodayBadge } from "./PostedTodayBadge";
+import { ClosedBadge } from "./ClosedBadge";
+import { IconX } from "./icons";
 
 interface JobDetailProps {
   job: Job;
@@ -14,27 +17,36 @@ interface JobDetailProps {
 }
 
 export function JobDetail({ job, onClose, onStatusChange }: JobDetailProps) {
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return (
     <>
       <div
         className="fixed inset-0 z-30 bg-black/20 md:bg-black/10"
         onClick={onClose}
       />
-      <div className="fixed bottom-0 left-0 right-0 z-40 max-h-[85vh] overflow-y-auto rounded-t-2xl border border-gray-200 bg-white p-6 shadow-xl md:bottom-auto md:left-auto md:right-6 md:top-24 md:w-96 md:rounded-xl">
+      <div className="animate-sheet-up fixed bottom-0 left-0 right-0 z-40 max-h-[85vh] overflow-y-auto rounded-t-3xl border border-gray-200 bg-white p-6 md:bottom-auto md:left-auto md:right-6 md:top-24 md:w-96 md:rounded-2xl">
         <div className="mb-4 flex items-start justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-semibold text-black">{job.role}</h2>
               {isJobPostedToday(job) ? <PostedTodayBadge /> : null}
+              {job.possiblyClosed ? <ClosedBadge /> : null}
             </div>
             <p className="text-gray-600">{job.company}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-2 py-1 text-gray-500 hover:bg-gray-100"
+            className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100"
           >
-            ✕
+            <IconX className="h-4 w-4" />
           </button>
         </div>
 
@@ -60,16 +72,14 @@ export function JobDetail({ job, onClose, onStatusChange }: JobDetailProps) {
             <dd className="text-black">{job.sourceName}</dd>
           </div>
           {job.possiblyClosed && (
-            <div className="rounded-lg bg-gray-100 px-3 py-2 text-gray-500">
+            <div className="rounded-xl bg-gray-100 px-3 py-2 text-gray-500">
               Possibly closed — not seen in latest sync
             </div>
           )}
         </dl>
 
         <div className="mb-4">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
-            Status
-          </p>
+          <p className="mb-2 text-xs font-medium text-gray-500">Status</p>
           <StatusDropdown
             status={job.status}
             onChange={(s) => onStatusChange(job.id, s)}
@@ -80,7 +90,7 @@ export function JobDetail({ job, onClose, onStatusChange }: JobDetailProps) {
           href={job.applyUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="block w-full rounded-lg bg-blue-600 px-4 py-2.5 text-center text-sm font-medium text-white hover:bg-blue-700"
+          className="block w-full rounded-full bg-lime px-4 py-3 text-center text-sm font-semibold text-forest transition-colors hover:bg-lime-deep"
         >
           Apply
         </a>

@@ -1,60 +1,77 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
   --color-white: #ffffff;
-  --color-black: #0a0a0a;
-  --color-gray-50: #fafafa;
-  --color-gray-100: #f4f4f5;
-  --color-gray-200: #e4e4e7;
-  --color-gray-300: #d4d4d8;
-  --color-gray-400: #a1a1aa;
-  --color-gray-500: #71717a;
-  --color-gray-600: #52525b;
-  --color-gray-700: #3f3f46;
-  --color-gray-800: #27272a;
-  --color-gray-900: #18181b;
+  --color-black: #163300;
+  --color-cream: #faf6ec;
 
-  --color-blue-50: #eff6ff;
-  --color-blue-100: #dbeafe;
-  --color-blue-200: #bfdbfe;
-  --color-blue-300: #93c5fd;
-  --color-blue-400: #60a5fa;
-  --color-blue-500: #3b82f6;
-  --color-blue-600: #2563eb;
-  --color-blue-700: #1d4ed8;
-  --color-blue-800: #1e40af;
+  /* Warm, forest-tinted neutral scale (not cool gray) */
+  --color-gray-50: #f6f2e7;
+  --color-gray-100: #eee7d6;
+  --color-gray-200: #dfd5b9;
+  --color-gray-300: #c7ba95;
+  --color-gray-400: #9e9271;
+  --color-gray-500: #756b52;
+  --color-gray-600: #574f3b;
+  --color-gray-700: #3e3828;
+  --color-gray-800: #2a2519;
+  --color-gray-900: #1c1810;
 
-  --color-green-100: #dcfce7;
-  --color-green-200: #bbf7d0;
-  --color-green-800: #166534;
+  /* Brand */
+  --color-forest: #163300;
+  --color-lime: #9fe870;
+  --color-lime-deep: #82c95a;
+  --color-lime-100: #eaf7dc;
+  --color-lime-200: #d2eeb4;
+  --color-lime-text: #1f3d0c;
 
-  --color-violet-100: #ede9fe;
-  --color-violet-200: #ddd6fe;
-  --color-violet-800: #5b21b6;
+  /* Secondary accents — category coding only, never decorative alarm */
+  --color-dusty-blue: #6e8ca0;
+  --color-dusty-blue-100: #e4ecf1;
+  --color-dusty-blue-200: #c7d6df;
+  --color-dusty-blue-text: #3e5a6c;
 
-  --color-rose-100: #ffe4e6;
-  --color-rose-200: #fecdd3;
-  --color-rose-800: #9f1239;
+  --color-ochre: #c68a3d;
+  --color-ochre-100: #f6e8d2;
+  --color-ochre-200: #ead1a8;
+  --color-ochre-text: #7a5220;
 
-  --color-amber-100: #fef3c7;
-  --color-amber-200: #fde68a;
-  --color-amber-800: #92400e;
+  --color-plum: #7c5372;
+  --color-plum-100: #efe1ec;
+  --color-plum-200: #dec3d8;
+  --color-plum-text: #5a3b53;
 
-  --color-teal-100: #ccfbf1;
-  --color-teal-200: #99f6e4;
-  --color-teal-800: #115e59;
+  /* Real errors only */
+  --color-red: #b3261e;
+  --color-red-100: #f5e1df;
+  --color-red-200: #e6bcb7;
 }
 
 body {
-  background-color: var(--color-white);
+  background-color: var(--color-cream);
   color: var(--color-black);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
-/* Pastel status chips */
+@keyframes sheet-up {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-sheet-up {
+  animation: sheet-up 220ms ease-out;
+}
+
+/* Status chips — honest semantics, no decorative alarm */
 .chip-empty {
   background-color: var(--color-gray-100);
   color: var(--color-gray-600);
@@ -62,43 +79,49 @@ body {
 }
 
 .chip-applied {
-  background-color: var(--color-green-100);
-  color: var(--color-green-800);
-  border: 1px solid var(--color-green-200);
+  background-color: var(--color-lime-100);
+  color: var(--color-lime-text);
+  border: 1px solid var(--color-lime-200);
 }
 
 .chip-skipped {
-  background-color: var(--color-violet-100);
-  color: var(--color-violet-800);
-  border: 1px solid var(--color-violet-200);
+  background-color: var(--color-gray-100);
+  color: var(--color-gray-500);
+  border: 1px solid var(--color-gray-200);
 }
 
 .chip-reached_out {
-  background-color: var(--color-blue-100);
-  color: var(--color-blue-800);
-  border: 1px solid var(--color-blue-200);
+  background-color: var(--color-dusty-blue-100);
+  color: var(--color-dusty-blue-text);
+  border: 1px solid var(--color-dusty-blue-200);
 }
 
 .chip-rejected {
-  background-color: var(--color-rose-100);
-  color: var(--color-rose-800);
-  border: 1px solid var(--color-rose-200);
+  background-color: var(--color-plum-100);
+  color: var(--color-plum-text);
+  border: 1px solid var(--color-plum-200);
 }
 
 .chip-expired {
-  background-color: var(--color-amber-100);
-  color: var(--color-amber-800);
-  border: 1px solid var(--color-amber-200);
+  background-color: var(--color-ochre-100);
+  color: var(--color-ochre-text);
+  border: 1px solid var(--color-ochre-200);
 }
 
 .chip-error {
   background-color: var(--color-red-100);
-  color: var(--color-red-800);
+  color: var(--color-red);
   border: 1px solid var(--color-red-200);
 }
 
 .chip-posted-today {
-  background-color: var(--color-teal-100);
-  color: var(--color-teal-800);
-  border: 1px solid var(--color-teal-200);
+  background-color: var(--color-lime-100);
+  color: var(--color-lime-text);
+  border: 1px solid var(--color-lime-200);
+}
+
+.chip-closed {
+  background-color: var(--color-gray-100);
+  color: var(--color-gray-500);
+  border: 1px dashed var(--color-gray-300);
 }

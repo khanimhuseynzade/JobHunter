@@ -67,13 +67,13 @@ export function SuggestionsPanel({
   if (suggestions.length === 0) return null;
 
   return (
-    <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+    <div className="mb-6 rounded-2xl border border-ochre-200 bg-ochre-100/60 p-4">
       <div className="mb-3 flex items-center gap-2">
-        <h2 className="text-sm font-semibold text-amber-900">
+        <h2 className="text-sm font-semibold text-ochre-text">
           {suggestions.length} email suggestion
           {suggestions.length === 1 ? "" : "s"}
         </h2>
-        <span className="text-xs text-amber-700/80">
+        <span className="text-xs text-ochre-text/70">
           From your inbox — review before applying
         </span>
       </div>
@@ -82,7 +82,7 @@ export function SuggestionsPanel({
         {suggestions.map((s) => (
           <li
             key={s.id}
-            className="flex flex-col gap-3 rounded-lg border border-amber-200/70 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
+            className="flex flex-col gap-3 rounded-xl border border-ochre-200/70 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
           >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -126,7 +126,7 @@ export function SuggestionsPanel({
                 type="button"
                 disabled={busyId === s.id}
                 onClick={() => resolve(s.id, "accept")}
-                className="rounded-md bg-black px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-80 disabled:opacity-50"
+                className="rounded-full bg-lime px-3 py-1.5 text-xs font-semibold text-forest transition-colors duration-200 hover:bg-lime-deep disabled:opacity-50"
               >
                 Accept
               </button>
@@ -134,7 +134,7 @@ export function SuggestionsPanel({
                 type="button"
                 disabled={busyId === s.id}
                 onClick={() => resolve(s.id, "dismiss")}
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                className="rounded-full border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors duration-200 hover:bg-gray-50 disabled:opacity-50"
               >
                 Dismiss
               </button>
