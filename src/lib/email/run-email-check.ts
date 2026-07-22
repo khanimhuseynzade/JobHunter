@@ -90,30 +90,38 @@ export async function runEmailCheck(): Promise<EmailCheckResult> {
   const errors: string[] = [];
 
   for (const email of relevant) {
+    let result;
     try {
-      const result = await classifyEmail(email, candidates);
-
-      if (
-        result.jobId &&
-        result.suggestedStatus &&
-        result.confidence >= MIN_CONFIDENCE
-      ) {
-        await insertSuggestion({
-          gmailMessageId: email.id,
-          jobId: result.jobId,
-          fromEmail: email.fromEmail,
-          subject: email.subject,
-          receivedAt: email.date,
-          snippet: email.snippet,
-          suggestedStatus: result.suggestedStatus,
-          confidence: result.confidence,
-          reasoning: result.reasoning,
-        });
-        suggestionsCreated += 1;
-      }
+      result = await classifyEmail(email, candidates);
     } catch (err) {
+      // Classification failed (rate limit, timeout, etc.). Don't record the
+      // message as seen so it is retried on the next run.
       errors.push(err instanceof Error ? err.message : String(err));
+      continue;
     }
+
+    const confident =
+      !!result.jobId &&
+      !!result.suggestedStatus &&
+      result.confidence >= MIN_CONFIDENCE;
+
+    // Record every successfully-classified message so it is never re-classified.
+    // Confident matches become pending suggestions; everything else is stored as
+    // "dismissed" purely to mark it seen.
+    await insertSuggestion({
+      gmailMessageId: email.id,
+      jobId: confident ? result.jobId : null,
+      fromEmail: email.fromEmail,
+      subject: email.subject,
+      receivedAt: email.date,
+      snippet: email.snippet,
+      suggestedStatus: confident ? result.suggestedStatus : null,
+      confidence: result.confidence,
+      reasoning: result.reasoning,
+      state: confident ? "pending" : "dismissed",
+    });
+
+    if (confident) suggestionsCreated += 1;
   }
 
   const errorText = errors.length ? errors.join("; ") : null;

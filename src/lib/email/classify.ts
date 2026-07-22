@@ -98,7 +98,10 @@ export async function classifyEmail(
 
     return object as Classification;
   } catch (err) {
+    // Re-throw so the caller can distinguish a genuine "no match" (NONE) from a
+    // transient failure (rate limit, timeout). Only genuine results should mark
+    // a message as seen; failures must be retried on the next run.
     console.error("classifyEmail failed:", err);
-    return NONE;
+    throw err;
   }
 }

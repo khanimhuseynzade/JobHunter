@@ -113,6 +113,12 @@ export async function insertSuggestion(input: {
   suggestedStatus: JobStatus | null;
   confidence: number;
   reasoning: string;
+  /**
+   * Defaults to "pending" (a real suggestion the user should review). Pass
+   * "dismissed" to record a processed-but-unactionable message purely so it is
+   * treated as seen and never re-classified.
+   */
+  state?: "pending" | "accepted" | "dismissed";
 }): Promise<void> {
   const db = getDb();
   if (!db) return;
