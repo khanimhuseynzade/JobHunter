@@ -45,9 +45,7 @@ export function JobCards({
         const pressed = pressedId === job.id;
         const cardStateClass = pressed
           ? "border-2 border-lime-deep bg-lime-200"
-          : visited
-            ? "border-2 border-gray-300 bg-gray-50 hover:border-gray-300"
-            : "border border-gray-200 bg-white hover:border-gray-300";
+          : "border border-gray-200 bg-white hover:border-gray-300";
         return (
           <div
             key={job.id}
@@ -59,7 +57,7 @@ export function JobCards({
           >
             <div className="mb-2">
               <div className="flex flex-wrap items-center gap-2">
-                {job.status === null && (
+                {job.status === null && !visited && (
                   <span className="h-1.5 w-1.5 rounded-full bg-lime" />
                 )}
                 <h3

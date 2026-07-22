@@ -48,10 +48,10 @@ export function StatusDropdown({
           e.stopPropagation();
           setOpen(!open);
         }}
-        className="inline-flex min-h-[44px] items-center"
+        className="group inline-flex min-h-[44px] items-center focus:outline-none"
       >
         <span
-          className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors duration-200 hover:opacity-80 ${statusChipClass(status)} ${compact ? "min-w-[88px] justify-center" : "min-w-[100px] justify-between"}`}
+          className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors duration-200 hover:opacity-80 group-focus-visible:ring-2 group-focus-visible:ring-forest group-focus-visible:ring-offset-2 ${statusChipClass(status)} ${compact ? "min-w-[88px] justify-center" : "min-w-[100px] justify-between"}`}
         >
           <span>{statusLabel(status)}</span>
           <IconChevronDown className="h-3 w-3 opacity-60" />

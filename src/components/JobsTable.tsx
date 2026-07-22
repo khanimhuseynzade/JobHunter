@@ -87,9 +87,9 @@ export function JobsTable({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-      <table className="w-full text-left text-sm">
+      <table className="w-full border-separate border-spacing-0 text-left text-sm">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50 text-xs font-medium text-gray-500">
+          <tr className="bg-gray-50 text-xs font-medium text-gray-500 [&>th]:border-b [&>th]:border-gray-200">
             <SortHeader
               label="Status"
               column="status"
@@ -139,11 +139,12 @@ export function JobsTable({
           {jobs.map((job) => {
             const visited = visitedIds.has(job.id);
             const pressed = pressedId === job.id;
-            const rowStateClass = pressed
-              ? "bg-lime-200 ring-2 ring-inset ring-lime-deep"
-              : visited
-                ? "bg-gray-50 ring-2 ring-inset ring-gray-300 hover:bg-lime-100"
-                : "hover:bg-lime-100";
+            // In border-separate mode the divider lives on the cells. When a row
+            // is pressed we swap the divider for a rounded lime fill so the
+            // highlight reads as a single ~12px-rounded bar inset from the pill.
+            const cellState = pressed
+              ? "bg-lime-200"
+              : "border-b border-gray-100";
             return (
               <tr
                 key={job.id}
@@ -151,19 +152,22 @@ export function JobsTable({
                   onRowOpen(job.id);
                   window.open(job.applyUrl, "_blank", "noopener,noreferrer");
                 }}
-                className={`cursor-pointer border-b border-gray-100 transition-colors ${rowStateClass} ${job.possiblyClosed ? "opacity-70" : ""}`}
+                className={`cursor-pointer transition-colors ${pressed ? "" : "hover:bg-lime-100"} ${job.possiblyClosed ? "opacity-70" : ""}`}
               >
-                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                <td
+                  className={`px-4 py-3 ${cellState} ${pressed ? "rounded-l-xl" : ""}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <StatusDropdown
                     status={job.status}
                     onChange={(s) => onStatusChange(job.id, s)}
                   />
                 </td>
                 <td
-                  className={`max-w-[280px] px-4 py-3 font-medium ${visited ? "text-gray-500" : "text-black"}`}
+                  className={`max-w-[280px] px-4 py-3 font-medium ${cellState} ${visited ? "text-gray-500" : "text-black"}`}
                 >
                   <span className="flex min-w-0 items-center gap-2">
-                    {job.status === null && (
+                    {job.status === null && !visited && (
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-lime" />
                     )}
                     <span className="truncate" title={job.role}>
@@ -174,24 +178,28 @@ export function JobsTable({
                   </span>
                 </td>
                 <td
-                  className="max-w-[160px] truncate px-4 py-3 text-gray-700"
+                  className={`max-w-[160px] truncate px-4 py-3 text-gray-700 ${cellState}`}
                   title={job.company}
                 >
                   {job.company}
                 </td>
                 <td
-                  className="max-w-[160px] truncate px-4 py-3 text-gray-600"
+                  className={`max-w-[160px] truncate px-4 py-3 text-gray-600 ${cellState}`}
                   title={formatDisplayLocation(job.location)}
                 >
                   {formatDisplayLocation(job.location)}
                 </td>
-                <td className="px-4 py-3 text-gray-600">
+                <td className={`px-4 py-3 text-gray-600 ${cellState}`}>
                   {WORK_MODE_LABELS[job.workMode]}
                 </td>
-                <td className="px-4 py-3 text-gray-600">
+                <td className={`px-4 py-3 text-gray-600 ${cellState}`}>
                   {formatLatency(job.latencyDays)}
                 </td>
-                <td className="px-4 py-3 text-gray-600">{job.sourceName}</td>
+                <td
+                  className={`px-4 py-3 text-gray-600 ${cellState} ${pressed ? "rounded-r-xl" : ""}`}
+                >
+                  {job.sourceName}
+                </td>
               </tr>
             );
           })}
