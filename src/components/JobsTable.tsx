@@ -17,6 +17,7 @@ interface JobsTableProps {
   onSortChange: (key: JobSortKey) => void;
   onStatusChange: (id: string, status: JobStatus | null) => void;
   visitedIds: Set<string>;
+  pressedId: string | null;
   onRowOpen: (id: string) => void;
 }
 
@@ -73,6 +74,7 @@ export function JobsTable({
   onSortChange,
   onStatusChange,
   visitedIds,
+  pressedId,
   onRowOpen,
 }: JobsTableProps) {
   if (jobs.length === 0) {
@@ -136,6 +138,12 @@ export function JobsTable({
         <tbody>
           {jobs.map((job) => {
             const visited = visitedIds.has(job.id);
+            const pressed = pressedId === job.id;
+            const rowStateClass = pressed
+              ? "bg-lime-200 ring-2 ring-inset ring-lime-deep"
+              : visited
+                ? "bg-gray-50 ring-2 ring-inset ring-gray-300 hover:bg-lime-100"
+                : "hover:bg-lime-100";
             return (
               <tr
                 key={job.id}
@@ -143,9 +151,7 @@ export function JobsTable({
                   onRowOpen(job.id);
                   window.open(job.applyUrl, "_blank", "noopener,noreferrer");
                 }}
-                className={`cursor-pointer border-b border-gray-100 transition-colors hover:bg-lime-100 ${
-                  visited ? "bg-gray-50 ring-2 ring-inset ring-gray-300" : ""
-                } ${job.possiblyClosed ? "opacity-70" : ""}`}
+                className={`cursor-pointer border-b border-gray-100 transition-colors ${rowStateClass} ${job.possiblyClosed ? "opacity-70" : ""}`}
               >
                 <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                   <StatusDropdown

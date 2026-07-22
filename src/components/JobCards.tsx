@@ -12,6 +12,7 @@ interface JobCardsProps {
   jobs: Job[];
   onStatusChange: (id: string, status: JobStatus | null) => void;
   visitedIds: Set<string>;
+  pressedId: string | null;
   onRowOpen: (id: string) => void;
 }
 
@@ -26,6 +27,7 @@ export function JobCards({
   jobs,
   onStatusChange,
   visitedIds,
+  pressedId,
   onRowOpen,
 }: JobCardsProps) {
   if (jobs.length === 0) {
@@ -40,6 +42,12 @@ export function JobCards({
     <div className="flex flex-col gap-3">
       {jobs.map((job) => {
         const visited = visitedIds.has(job.id);
+        const pressed = pressedId === job.id;
+        const cardStateClass = pressed
+          ? "border-2 border-lime-deep bg-lime-200"
+          : visited
+            ? "border-2 border-gray-300 bg-gray-50 hover:border-gray-300"
+            : "border border-gray-200 bg-white hover:border-gray-300";
         return (
           <div
             key={job.id}
@@ -47,11 +55,7 @@ export function JobCards({
               onRowOpen(job.id);
               window.open(job.applyUrl, "_blank", "noopener,noreferrer");
             }}
-            className={`cursor-pointer rounded-2xl p-4 transition-colors hover:border-gray-300 ${
-              visited
-                ? "border-2 border-gray-300 bg-gray-50"
-                : "border border-gray-200 bg-white"
-            } ${job.possiblyClosed ? "opacity-70" : ""}`}
+            className={`cursor-pointer rounded-2xl p-4 transition-colors ${cardStateClass} ${job.possiblyClosed ? "opacity-70" : ""}`}
           >
             <div className="mb-2">
               <div className="flex flex-wrap items-center gap-2">

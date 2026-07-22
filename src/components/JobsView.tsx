@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Job, JobStatus, WorkMode } from "@/types";
-import { WORK_MODE_LABELS } from "@/types";
+import type { Job, JobStatus } from "@/types";
 import { getLastSyncLabel } from "@/lib/seed";
 import { isToday } from "@/lib/job-dates";
 import {
@@ -38,15 +37,10 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
-function filterJobsLocally(
-  jobs: Job[],
-  query: string,
-  workMode: WorkMode | ""
-): Job[] {
+function filterJobsLocally(jobs: Job[], query: string): Job[] {
   const needle = query.trim().toLowerCase();
 
   return jobs.filter((job) => {
-    if (workMode && job.workMode !== workMode) return false;
     if (!needle) return true;
 
     return [job.role, job.company, job.location, job.sourceName].some((field) =>
@@ -60,7 +54,6 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
   const [showSkipped, setShowSkipped] = useState(false);
   const [showClosed, setShowClosed] = useState(false);
   const [query, setQuery] = useState("");
-  const [workMode, setWorkMode] = useState<WorkMode | "">("");
   const [sortKey, setSortKey] = useState<JobSortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDirection>("asc");
   const [lastSync, setLastSync] = useState<string | null>(null);
@@ -68,6 +61,7 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
   const [checkingEmail, setCheckingEmail] = useState(false);
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [visitedIds, setVisitedIds] = useState<Set<string>>(new Set());
+  const [pressedId, setPressedId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ id: number; message: string } | null>(
     null
   );
@@ -88,6 +82,17 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
     };
   }, []);
 
+  // Clear the pressed-row highlight on any pointer press. A row click fires
+  // mousedown (clears) before its click handler (re-sets pressedId), so
+  // clicking a row keeps it highlighted while clicking anywhere else resets it.
+  useEffect(() => {
+    function handlePointerDown() {
+      setPressedId(null);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
+
   const debouncedQuery = useDebouncedValue(query, 300);
 
   const loadJobs = useCallback(async () => {
@@ -95,7 +100,6 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
     if (showSkipped) params.set("showSkipped", "true");
     if (showClosed) params.set("showClosed", "true");
     if (debouncedQuery) params.set("q", debouncedQuery);
-    if (workMode) params.set("workMode", workMode);
 
     setLoadingJobs(true);
     try {
@@ -105,17 +109,15 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
     } finally {
       setLoadingJobs(false);
     }
-  }, [showSkipped, showClosed, debouncedQuery, workMode]);
+  }, [showSkipped, showClosed, debouncedQuery]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const q = params.get("q");
-    const mode = params.get("workMode");
     const sort = params.get("sort");
     const dir = params.get("dir");
 
     if (q) setQuery(q);
-    if (mode && mode in WORK_MODE_LABELS) setWorkMode(mode as WorkMode);
     if (sort && (SORT_KEYS as string[]).includes(sort)) {
       setSortKey(sort as JobSortKey);
     }
@@ -127,7 +129,6 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
   useEffect(() => {
     const params = new URLSearchParams();
     if (debouncedQuery) params.set("q", debouncedQuery);
-    if (workMode) params.set("workMode", workMode);
     if (sortKey) {
       params.set("sort", sortKey);
       params.set("dir", sortDir);
@@ -138,7 +139,7 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
     const qs = params.toString();
     const nextUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
     window.history.replaceState(null, "", nextUrl);
-  }, [debouncedQuery, workMode, sortKey, sortDir, showSkipped, showClosed]);
+  }, [debouncedQuery, sortKey, sortDir, showSkipped, showClosed]);
 
   useEffect(() => {
     fetch("/api/sync")
@@ -166,6 +167,7 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
   }, []);
 
   function handleRowOpen(id: string) {
+    setPressedId(id);
     setVisitedIds((prev) => {
       if (prev.has(id)) return prev;
       const next = new Set(prev);
@@ -190,8 +192,8 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
   }, [loadJobs]);
 
   const filteredJobs = useMemo(
-    () => filterJobsLocally(jobs, query, workMode),
-    [jobs, query, workMode]
+    () => filterJobsLocally(jobs, query),
+    [jobs, query]
   );
 
   const visibleJobs = useMemo(() => {
@@ -332,20 +334,6 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
             className="w-full bg-transparent py-2.5 pl-10 pr-3 text-sm text-black placeholder:text-gray-400"
           />
         </div>
-        <select
-          value={workMode}
-          onChange={(e) => setWorkMode(e.target.value as WorkMode | "")}
-          className="bg-transparent px-3 py-2.5 text-sm text-black sm:max-w-[180px]"
-        >
-          <option value="">All work modes</option>
-          {(Object.entries(WORK_MODE_LABELS) as [WorkMode, string][]).map(
-            ([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            )
-          )}
-        </select>
         <FiltersMenu
           showSkipped={showSkipped}
           onShowSkippedChange={setShowSkipped}
@@ -369,6 +357,7 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
             onSortChange={handleSortChange}
             onStatusChange={handleStatusChange}
             visitedIds={visitedIds}
+            pressedId={pressedId}
             onRowOpen={handleRowOpen}
           />
         </div>
@@ -378,6 +367,7 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
             jobs={visibleJobs}
             onStatusChange={handleStatusChange}
             visitedIds={visitedIds}
+            pressedId={pressedId}
             onRowOpen={handleRowOpen}
           />
         </div>
