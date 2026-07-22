@@ -44,7 +44,7 @@ export function JobCards({
         const visited = visitedIds.has(job.id);
         const pressed = pressedId === job.id;
         const cardStateClass = pressed
-          ? "border-2 border-lime-deep bg-lime-200"
+          ? "border border-gray-200 border-b-lime-deep bg-white"
           : "border border-gray-200 bg-white hover:border-gray-300";
         return (
           <div
