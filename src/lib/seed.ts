@@ -1,5 +1,18 @@
-import type { Job, WorkMode } from "@/types";
+import type { Job, JobStatus, WorkMode } from "@/types";
 import { sourcePreferenceScore } from "@/lib/sync/source-preference";
+
+const STATUS_RANK: Record<JobStatus, number> = {
+  applied: 1,
+  reached_out: 2,
+  rejected: 3,
+  expired: 4,
+  error: 5,
+  skipped: 6,
+};
+
+function statusRank(status: JobStatus | null): number {
+  return status === null ? 0 : STATUS_RANK[status];
+}
 
 const now = new Date().toISOString();
 
@@ -136,9 +149,8 @@ function postedTime(job: Job): number {
 
 export function sortJobs(jobs: Job[]): Job[] {
   return [...jobs].sort((a, b) => {
-    const aEmpty = a.status === null ? 0 : 1;
-    const bEmpty = b.status === null ? 0 : 1;
-    if (aEmpty !== bEmpty) return aEmpty - bEmpty;
+    const rankDiff = statusRank(a.status) - statusRank(b.status);
+    if (rankDiff !== 0) return rankDiff;
 
     const postedDiff = postedTime(b) - postedTime(a);
     if (postedDiff !== 0) return postedDiff;

@@ -16,6 +16,8 @@ interface JobsTableProps {
   sortDir: SortDirection;
   onSortChange: (key: JobSortKey) => void;
   onStatusChange: (id: string, status: JobStatus | null) => void;
+  visitedIds: Set<string>;
+  onRowOpen: (id: string) => void;
 }
 
 function formatLatency(days: number | null): string {
@@ -70,6 +72,8 @@ export function JobsTable({
   sortDir,
   onSortChange,
   onStatusChange,
+  visitedIds,
+  onRowOpen,
 }: JobsTableProps) {
   if (jobs.length === 0) {
     return (
@@ -120,7 +124,7 @@ export function JobsTable({
               onSortChange={onSortChange}
             />
             <SortHeader
-              label="Latency"
+              label="Posted"
               column="latencyDays"
               sortKey={sortKey}
               sortDir={sortDir}
@@ -130,45 +134,61 @@ export function JobsTable({
           </tr>
         </thead>
         <tbody>
-          {jobs.map((job) => (
-            <tr
-              key={job.id}
-              onClick={() =>
-                window.open(job.applyUrl, "_blank", "noopener,noreferrer")
-              }
-              className={`cursor-pointer border-b border-gray-100 transition-colors hover:bg-gray-50 ${
-                job.possiblyClosed ? "opacity-70" : ""
-              }`}
-            >
-              <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                <StatusDropdown
-                  status={job.status}
-                  onChange={(s) => onStatusChange(job.id, s)}
-                />
-              </td>
-              <td className="px-4 py-3 font-medium text-black">
-                <span className="flex items-center gap-2">
-                  {job.status === null && (
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-lime" />
-                  )}
-                  {job.role}
-                  {isJobPostedToday(job) ? <PostedTodayBadge /> : null}
-                  {job.possiblyClosed ? <ClosedBadge /> : null}
-                </span>
-              </td>
-              <td className="px-4 py-3 text-gray-700">{job.company}</td>
-              <td className="px-4 py-3 text-gray-600">
-                {formatDisplayLocation(job.location)}
-              </td>
-              <td className="px-4 py-3 text-gray-600">
-                {WORK_MODE_LABELS[job.workMode]}
-              </td>
-              <td className="px-4 py-3 text-gray-600">
-                {formatLatency(job.latencyDays)}
-              </td>
-              <td className="px-4 py-3 text-gray-600">{job.sourceName}</td>
-            </tr>
-          ))}
+          {jobs.map((job) => {
+            const visited = visitedIds.has(job.id);
+            return (
+              <tr
+                key={job.id}
+                onClick={() => {
+                  onRowOpen(job.id);
+                  window.open(job.applyUrl, "_blank", "noopener,noreferrer");
+                }}
+                className={`cursor-pointer border-b border-gray-100 transition-colors hover:bg-lime-100 ${
+                  visited ? "bg-gray-50 ring-2 ring-inset ring-gray-300" : ""
+                } ${job.possiblyClosed ? "opacity-70" : ""}`}
+              >
+                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                  <StatusDropdown
+                    status={job.status}
+                    onChange={(s) => onStatusChange(job.id, s)}
+                  />
+                </td>
+                <td
+                  className={`max-w-[280px] px-4 py-3 font-medium ${visited ? "text-gray-500" : "text-black"}`}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    {job.status === null && (
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-lime" />
+                    )}
+                    <span className="truncate" title={job.role}>
+                      {job.role}
+                    </span>
+                    {isJobPostedToday(job) ? <PostedTodayBadge /> : null}
+                    {job.possiblyClosed ? <ClosedBadge /> : null}
+                  </span>
+                </td>
+                <td
+                  className="max-w-[160px] truncate px-4 py-3 text-gray-700"
+                  title={job.company}
+                >
+                  {job.company}
+                </td>
+                <td
+                  className="max-w-[160px] truncate px-4 py-3 text-gray-600"
+                  title={formatDisplayLocation(job.location)}
+                >
+                  {formatDisplayLocation(job.location)}
+                </td>
+                <td className="px-4 py-3 text-gray-600">
+                  {WORK_MODE_LABELS[job.workMode]}
+                </td>
+                <td className="px-4 py-3 text-gray-600">
+                  {formatLatency(job.latencyDays)}
+                </td>
+                <td className="px-4 py-3 text-gray-600">{job.sourceName}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

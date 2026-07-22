@@ -5,19 +5,19 @@
 
   --color-white: #ffffff;
   --color-black: #163300;
-  --color-cream: #faf6ec;
+  --color-cream: #fafafa;
 
-  /* Warm, forest-tinted neutral scale (not cool gray) */
-  --color-gray-50: #f6f2e7;
-  --color-gray-100: #eee7d6;
-  --color-gray-200: #dfd5b9;
-  --color-gray-300: #c7ba95;
-  --color-gray-400: #9e9271;
-  --color-gray-500: #756b52;
-  --color-gray-600: #574f3b;
-  --color-gray-700: #3e3828;
-  --color-gray-800: #2a2519;
-  --color-gray-900: #1c1810;
+  /* Neutral gray scale */
+  --color-gray-50: #f4f4f4;
+  --color-gray-100: #e9e9e9;
+  --color-gray-200: #dcdcdc;
+  --color-gray-300: #c4c4c4;
+  --color-gray-400: #9c9c9c;
+  --color-gray-500: #737373;
+  --color-gray-600: #525252;
+  --color-gray-700: #404040;
+  --color-gray-800: #292929;
+  --color-gray-900: #181818;
 
   /* Brand */
   --color-forest: #163300;
@@ -27,16 +27,17 @@
   --color-lime-200: #d2eeb4;
   --color-lime-text: #1f3d0c;
 
-  /* Secondary accents — category coding only, never decorative alarm */
+  /* Secondary accent — category coding only, never decorative alarm */
   --color-dusty-blue: #6e8ca0;
   --color-dusty-blue-100: #e4ecf1;
   --color-dusty-blue-200: #c7d6df;
   --color-dusty-blue-text: #3e5a6c;
 
-  --color-plum: #7c5372;
-  --color-plum-100: #efe1ec;
-  --color-plum-200: #dec3d8;
-  --color-plum-text: #5a3b53;
+  /* Muted negative — Rejected. Softer and less saturated than --color-red so it reads as final/closed rather than an active error */
+  --color-rose: #7d4d49;
+  --color-rose-100: #f3e6e6;
+  --color-rose-200: #d9bcb8;
+  --color-rose-text: #7d4d49;
 
   /* Real errors only */
   --color-red: #b3261e;
@@ -66,6 +67,19 @@ body {
   animation: sheet-up 220ms ease-out;
 }
 
+@keyframes flash-highlight {
+  from {
+    background-color: var(--color-lime-100);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+.animate-flash {
+  animation: flash-highlight 1.5s ease-out;
+}
+
 /* Status chips — honest semantics, no decorative alarm */
 .chip-empty {
   background-color: var(--color-gray-100);
@@ -92,15 +106,15 @@ body {
 }
 
 .chip-rejected {
-  background-color: var(--color-plum-100);
-  color: var(--color-plum-text);
-  border: 1px solid var(--color-plum-200);
+  background-color: var(--color-rose-100);
+  color: var(--color-rose-text);
+  border: 1px solid var(--color-rose-200);
 }
 
 .chip-expired {
   background-color: var(--color-gray-100);
-  color: var(--color-gray-500);
-  border: 1px solid var(--color-gray-200);
+  color: var(--color-gray-600);
+  border: 1px solid var(--color-gray-500);
 }
 
 .chip-error {

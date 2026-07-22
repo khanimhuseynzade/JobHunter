@@ -48,10 +48,14 @@ export function StatusDropdown({
           e.stopPropagation();
           setOpen(!open);
         }}
-        className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors duration-200 hover:opacity-80 ${statusChipClass(status)} ${compact ? "min-w-[88px] justify-center" : "min-w-[100px] justify-between"}`}
+        className="inline-flex min-h-[44px] items-center"
       >
-        <span>{statusLabel(status)}</span>
-        <IconChevronDown className="h-3 w-3 opacity-60" />
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors duration-200 hover:opacity-80 ${statusChipClass(status)} ${compact ? "min-w-[88px] justify-center" : "min-w-[100px] justify-between"}`}
+        >
+          <span>{statusLabel(status)}</span>
+          <IconChevronDown className="h-3 w-3 opacity-60" />
+        </span>
       </button>
 
       {open && (
@@ -65,7 +69,7 @@ export function StatusDropdown({
                 onChange(opt.value);
                 setOpen(false);
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-lime-100"
             >
               <span
                 className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statusChipClass(opt.value)}`}

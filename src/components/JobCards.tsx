@@ -11,6 +11,8 @@ import { ClosedBadge } from "./ClosedBadge";
 interface JobCardsProps {
   jobs: Job[];
   onStatusChange: (id: string, status: JobStatus | null) => void;
+  visitedIds: Set<string>;
+  onRowOpen: (id: string) => void;
 }
 
 function formatLatency(days: number | null): string {
@@ -20,7 +22,12 @@ function formatLatency(days: number | null): string {
   return `${days}d ago`;
 }
 
-export function JobCards({ jobs, onStatusChange }: JobCardsProps) {
+export function JobCards({
+  jobs,
+  onStatusChange,
+  visitedIds,
+  onRowOpen,
+}: JobCardsProps) {
   if (jobs.length === 0) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white py-16 text-center text-gray-500">
@@ -31,41 +38,51 @@ export function JobCards({ jobs, onStatusChange }: JobCardsProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      {jobs.map((job) => (
-        <div
-          key={job.id}
-          onClick={() =>
-            window.open(job.applyUrl, "_blank", "noopener,noreferrer")
-          }
-          className={`cursor-pointer rounded-2xl border border-gray-200 bg-white p-4 transition-colors hover:border-gray-300 ${
-            job.possiblyClosed ? "opacity-70" : ""
-          }`}
-        >
-          <div className="mb-2">
-            <div className="flex flex-wrap items-center gap-2">
-              {job.status === null && (
-                <span className="h-1.5 w-1.5 rounded-full bg-lime" />
-              )}
-              <h3 className="font-medium text-black">{job.role}</h3>
-              {isJobPostedToday(job) ? <PostedTodayBadge /> : null}
-              {job.possiblyClosed ? <ClosedBadge /> : null}
+      {jobs.map((job) => {
+        const visited = visitedIds.has(job.id);
+        return (
+          <div
+            key={job.id}
+            onClick={() => {
+              onRowOpen(job.id);
+              window.open(job.applyUrl, "_blank", "noopener,noreferrer");
+            }}
+            className={`cursor-pointer rounded-2xl p-4 transition-colors hover:border-gray-300 ${
+              visited
+                ? "border-2 border-gray-300 bg-gray-50"
+                : "border border-gray-200 bg-white"
+            } ${job.possiblyClosed ? "opacity-70" : ""}`}
+          >
+            <div className="mb-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {job.status === null && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-lime" />
+                )}
+                <h3
+                  className={`font-medium ${visited ? "text-gray-500" : "text-black"}`}
+                >
+                  {job.role}
+                </h3>
+                {isJobPostedToday(job) ? <PostedTodayBadge /> : null}
+                {job.possiblyClosed ? <ClosedBadge /> : null}
+              </div>
+              <p className="text-sm text-gray-600">{job.company}</p>
             </div>
-            <p className="text-sm text-gray-600">{job.company}</p>
+            <p className="mb-3 text-xs text-gray-500">
+              {formatDisplayLocation(job.location)} ·{" "}
+              {WORK_MODE_LABELS[job.workMode]} ·{" "}
+              {formatLatency(job.latencyDays)} · {job.sourceName}
+            </p>
+            <div onClick={(e) => e.stopPropagation()}>
+              <StatusDropdown
+                status={job.status}
+                onChange={(s) => onStatusChange(job.id, s)}
+                compact
+              />
+            </div>
           </div>
-          <p className="mb-3 text-xs text-gray-500">
-            {formatDisplayLocation(job.location)} ·{" "}
-            {WORK_MODE_LABELS[job.workMode]} · {formatLatency(job.latencyDays)}{" "}
-            · {job.sourceName}
-          </p>
-          <div onClick={(e) => e.stopPropagation()}>
-            <StatusDropdown
-              status={job.status}
-              onChange={(s) => onStatusChange(job.id, s)}
-              compact
-            />
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

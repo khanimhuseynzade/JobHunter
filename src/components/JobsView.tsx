@@ -14,6 +14,8 @@ import { JobsTable } from "./JobsTable";
 import { JobCards } from "./JobCards";
 import { SuggestionsPanel, type EmailSuggestion } from "./SuggestionsPanel";
 import { FiltersMenu } from "./FiltersMenu";
+import { Toast } from "./Toast";
+import { statusLabel } from "@/lib/status";
 import { IconMail, IconSearch } from "./icons";
 
 const SORT_KEYS: JobSortKey[] = [
@@ -64,8 +66,27 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<EmailSuggestion[]>([]);
   const [checkingEmail, setCheckingEmail] = useState(false);
-  const [checkEmailMsg, setCheckEmailMsg] = useState<string | null>(null);
   const [loadingJobs, setLoadingJobs] = useState(false);
+  const [visitedIds, setVisitedIds] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<{ id: number; message: string } | null>(
+    null
+  );
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((message: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    const id = Date.now();
+    setToast({ id, message });
+    toastTimer.current = setTimeout(() => {
+      setToast((current) => (current?.id === id ? null : current));
+    }, 3000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
 
   const debouncedQuery = useDebouncedValue(query, 300);
 
@@ -137,13 +158,27 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
         }
       })
       .catch(() => {});
+
+    try {
+      const raw = window.localStorage.getItem("jobhunter:visitedIds");
+      if (raw) setVisitedIds(new Set(JSON.parse(raw)));
+    } catch {}
   }, []);
 
-  useEffect(() => {
-    if (!checkEmailMsg) return;
-    const id = setTimeout(() => setCheckEmailMsg(null), 6000);
-    return () => clearTimeout(id);
-  }, [checkEmailMsg]);
+  function handleRowOpen(id: string) {
+    setVisitedIds((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      try {
+        window.localStorage.setItem(
+          "jobhunter:visitedIds",
+          JSON.stringify([...next])
+        );
+      } catch {}
+      return next;
+    });
+  }
 
   const skipInitialJobsFetch = useRef(true);
   useEffect(() => {
@@ -174,8 +209,6 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
     [jobs]
   );
 
-  const hasLocalFilter = Boolean(query.trim() || workMode);
-
   function handleSortChange(key: JobSortKey) {
     if (sortKey === key) {
       setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
@@ -197,12 +230,14 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
       if (!showSkipped && status === "skipped") {
         setJobs((prev) => prev.filter((j) => j.id !== id));
       }
+      showToast(status ? `Marked as ${statusLabel(status)}` : "Status cleared");
+    } else {
+      showToast("Couldn't update status — try again");
     }
   }
 
   async function handleCheckEmail() {
     setCheckingEmail(true);
-    setCheckEmailMsg(null);
     try {
       const res = await fetch("/api/check-email", { method: "POST" });
       const data = await res.json();
@@ -216,16 +251,17 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
             );
           }
         }
-        setCheckEmailMsg(
+        setLastSync(new Date().toISOString());
+        showToast(
           data.skipped
             ? data.skipped
             : `Checked ${data.messagesNew ?? 0} new email${data.messagesNew === 1 ? "" : "s"} · ${data.suggestionsCreated ?? 0} new suggestion${data.suggestionsCreated === 1 ? "" : "s"}`
         );
       } else {
-        setCheckEmailMsg(data.error ?? "Email check failed");
+        showToast(data.error ?? "Email check failed");
       }
     } catch {
-      setCheckEmailMsg("Email check failed");
+      showToast("Email check failed");
     } finally {
       setCheckingEmail(false);
     }
@@ -259,15 +295,12 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
             <span>{jobStats.applied} applied</span>
             <span aria-hidden>·</span>
             <span>{jobStats.rejected} rejected</span>
-            {hasLocalFilter && visibleJobs.length !== jobs.length ? (
-              <>
-                <span aria-hidden>·</span>
-                <span>{visibleJobs.length} matching</span>
-              </>
-            ) : null}
           </div>
           <p className="mt-1 text-xs text-gray-400">
-            Last updated: {getLastSyncLabel(lastSync)}
+            Last updated:{" "}
+            <span key={lastSync} className="animate-flash rounded px-1">
+              {getLastSyncLabel(lastSync)}
+            </span>
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -275,16 +308,11 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
             type="button"
             onClick={handleCheckEmail}
             disabled={checkingEmail}
-            className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-black transition-colors hover:bg-gray-50 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-black transition-colors hover:bg-lime-100 disabled:opacity-50"
           >
             <IconMail className="h-3.5 w-3.5" />
             {checkingEmail ? "Checking email…" : "Check email"}
           </button>
-          {checkEmailMsg ? (
-            <span className="text-xs text-gray-400 transition-opacity">
-              {checkEmailMsg}
-            </span>
-          ) : null}
         </div>
       </div>
 
@@ -293,7 +321,7 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
         onResolved={handleSuggestionResolved}
       />
 
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="mb-4 flex flex-col divide-y divide-gray-200 rounded-xl border border-gray-200 bg-white sm:flex-row sm:items-stretch sm:divide-x sm:divide-y-0">
         <div className="relative w-full sm:flex-1">
           <IconSearch className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
@@ -301,32 +329,34 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search role, company, location…"
-            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-3 text-sm text-black placeholder:text-gray-400"
+            className="w-full bg-transparent py-2.5 pl-10 pr-3 text-sm text-black placeholder:text-gray-400"
           />
         </div>
-        <div className="flex gap-3">
-          <select
-            value={workMode}
-            onChange={(e) => setWorkMode(e.target.value as WorkMode | "")}
-            className="flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-black sm:max-w-[180px]"
-          >
-            <option value="">All work modes</option>
-            {(Object.entries(WORK_MODE_LABELS) as [WorkMode, string][]).map(
-              ([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              )
-            )}
-          </select>
-          <FiltersMenu
-            showSkipped={showSkipped}
-            onShowSkippedChange={setShowSkipped}
-            showClosed={showClosed}
-            onShowClosedChange={setShowClosed}
-          />
-        </div>
+        <select
+          value={workMode}
+          onChange={(e) => setWorkMode(e.target.value as WorkMode | "")}
+          className="bg-transparent px-3 py-2.5 text-sm text-black sm:max-w-[180px]"
+        >
+          <option value="">All work modes</option>
+          {(Object.entries(WORK_MODE_LABELS) as [WorkMode, string][]).map(
+            ([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            )
+          )}
+        </select>
+        <FiltersMenu
+          showSkipped={showSkipped}
+          onShowSkippedChange={setShowSkipped}
+          showClosed={showClosed}
+          onShowClosedChange={setShowClosed}
+        />
       </div>
+
+      <p className="mb-2 text-xs text-gray-500">
+        Showing {visibleJobs.length} of {jobs.length}
+      </p>
 
       <div
         className={`transition-opacity duration-200 ${loadingJobs ? "opacity-50" : ""}`}
@@ -338,13 +368,22 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
             sortDir={sortDir}
             onSortChange={handleSortChange}
             onStatusChange={handleStatusChange}
+            visitedIds={visitedIds}
+            onRowOpen={handleRowOpen}
           />
         </div>
 
         <div className="md:hidden">
-          <JobCards jobs={visibleJobs} onStatusChange={handleStatusChange} />
+          <JobCards
+            jobs={visibleJobs}
+            onStatusChange={handleStatusChange}
+            visitedIds={visitedIds}
+            onRowOpen={handleRowOpen}
+          />
         </div>
       </div>
+
+      {toast ? <Toast key={toast.id} message={toast.message} /> : null}
     </div>
   );
 }
