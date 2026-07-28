@@ -26,6 +26,43 @@ const SORT_KEYS: JobSortKey[] = [
   "latencyDays",
 ];
 
+type RangeKey = "7d" | "30d" | "all";
+
+const RANGE_ORDER: RangeKey[] = ["7d", "30d", "all"];
+
+const RANGE_CONFIG: Record<
+  RangeKey,
+  {
+    days: number | null;
+    rangeLabel: string;
+    toggleLabel: string;
+    goal: number;
+    periodTarget: string;
+  }
+> = {
+  "7d": {
+    days: 7,
+    rangeLabel: "last 7 days",
+    toggleLabel: "7d",
+    goal: 80,
+    periodTarget: "this week's target",
+  },
+  "30d": {
+    days: 30,
+    rangeLabel: "last 30 days",
+    toggleLabel: "30d",
+    goal: 320,
+    periodTarget: "this month's target",
+  },
+  all: {
+    days: null,
+    rangeLabel: "all time",
+    toggleLabel: "All",
+    goal: 80,
+    periodTarget: "your target",
+  },
+};
+
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
 
@@ -62,6 +99,7 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [visitedIds, setVisitedIds] = useState<Set<string>>(new Set());
   const [pressedId, setPressedId] = useState<string | null>(null);
+  const [range, setRange] = useState<RangeKey>("7d");
   const [toast, setToast] = useState<{ id: number; message: string } | null>(
     null
   );
@@ -191,9 +229,18 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
     loadJobs();
   }, [loadJobs]);
 
+  // Jobs scoped to the selected range (by firstSeenAt). Shared by the stats
+  // card and the table/cards below so the whole view reflects the range.
+  const rangedJobs = useMemo(() => {
+    const { days } = RANGE_CONFIG[range];
+    if (days == null) return jobs;
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+    return jobs.filter((job) => new Date(job.firstSeenAt).getTime() >= cutoff);
+  }, [jobs, range]);
+
   const filteredJobs = useMemo(
-    () => filterJobsLocally(jobs, query),
-    [jobs, query]
+    () => filterJobsLocally(rangedJobs, query),
+    [rangedJobs, query]
   );
 
   const visibleJobs = useMemo(() => {
@@ -201,15 +248,30 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
     return sortJobList(filteredJobs, sortKey, sortDir);
   }, [filteredJobs, sortKey, sortDir]);
 
+  // Stats are scoped to the selected range by firstSeenAt (when a job was
+  // first tracked). The Job model has no per-status timestamp, so applied/
+  // rejected counts reflect jobs first seen within the window.
   const jobStats = useMemo(
     () => ({
-      total: jobs.length,
-      addedToday: jobs.filter((job) => isToday(job.firstSeenAt)).length,
-      applied: jobs.filter((job) => job.status === "applied").length,
-      rejected: jobs.filter((job) => job.status === "rejected").length,
+      total: rangedJobs.length,
+      addedToday: rangedJobs.filter((job) => isToday(job.firstSeenAt)).length,
+      applied: rangedJobs.filter((job) => job.status === "applied").length,
+      rejected: rangedJobs.filter((job) => job.status === "rejected").length,
     }),
-    [jobs]
+    [rangedJobs]
   );
+
+  const goalStats = useMemo(() => {
+    const { goal, periodTarget } = RANGE_CONFIG[range];
+    const submitted = jobStats.applied;
+    const remaining = Math.max(0, goal - submitted);
+    const pct = goal > 0 ? Math.min(100, (submitted / goal) * 100) : 0;
+    const helper =
+      remaining > 0
+        ? `${remaining} more to hit ${periodTarget}`
+        : `You've hit ${periodTarget} — nice work`;
+    return { goal, submitted, remaining, pct, helper };
+  }, [jobStats.applied, range]);
 
   function handleSortChange(key: JobSortKey) {
     if (sortKey === key) {
@@ -285,36 +347,112 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
 
   return (
     <div>
-      <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm text-gray-500">Jobs tracked</p>
-          <p className="text-5xl font-bold leading-none tracking-tight text-black">
-            {jobStats.total}
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
-            <span>{jobStats.addedToday} added today</span>
-            <span aria-hidden>·</span>
-            <span>{jobStats.applied} applied</span>
-            <span aria-hidden>·</span>
-            <span>{jobStats.rejected} rejected</span>
+      <div className="mb-8 rounded-2xl border border-gray-200 bg-white">
+        {/* Header stats block — count, range toggle, email button */}
+        <div className="px-6 pt-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm text-gray-500">Jobs tracked</p>
+              <p className="mt-1 text-5xl font-bold leading-none tracking-tight text-black">
+                {jobStats.total}
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
+                <span>{jobStats.addedToday} added today</span>
+                <span aria-hidden>·</span>
+                <span>{jobStats.applied} applied</span>
+                <span aria-hidden>·</span>
+                <span>{jobStats.rejected} rejected</span>
+              </div>
+              <p className="mt-1 text-xs text-gray-400">
+                Last updated:{" "}
+                <span key={lastSync} className="animate-flash rounded px-1">
+                  {getLastSyncLabel(lastSync)}
+                </span>
+              </p>
+            </div>
+
+            {/* Controls: email button + range toggle. Right-aligned stack on
+                desktop; wraps below the stats on small screens. */}
+            <div className="flex shrink-0 flex-wrap items-center gap-2 sm:flex-col sm:items-end sm:gap-3">
+              <button
+                type="button"
+                onClick={handleCheckEmail}
+                disabled={checkingEmail}
+                className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-black transition-colors hover:bg-lime-100 disabled:opacity-50"
+              >
+                <IconMail className="h-3.5 w-3.5 text-forest" />
+                {checkingEmail ? "Checking email…" : "Check email"}
+              </button>
+
+              {/* Segmented range toggle (7d / 30d / All) */}
+              <div
+                className="inline-flex rounded-full p-0.5"
+                style={{ backgroundColor: "#eceeed" }}
+                role="tablist"
+                aria-label="Stats range"
+              >
+                {RANGE_ORDER.map((key) => {
+                  const active = range === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setRange(key)}
+                      className="rounded-full px-3 py-1 text-xs font-medium transition-colors"
+                      style={
+                        active
+                          ? {
+                              backgroundColor: "#fff",
+                              boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+                              color: "#111",
+                            }
+                          : { color: "#6b7280" }
+                      }
+                    >
+                      {RANGE_CONFIG[key].toggleLabel}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-          <p className="mt-1 text-xs text-gray-400">
-            Last updated:{" "}
-            <span key={lastSync} className="animate-flash rounded px-1">
-              {getLastSyncLabel(lastSync)}
-            </span>
-          </p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <button
-            type="button"
-            onClick={handleCheckEmail}
-            disabled={checkingEmail}
-            className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-black transition-colors hover:bg-lime-100 disabled:opacity-50"
+
+        {/* Divider + goal-progress block */}
+        <div
+          className="mx-6 pb-6"
+          style={{
+            marginTop: 18,
+            paddingTop: 18,
+            borderTop: "1px solid #eceeed",
+          }}
+        >
+          <div className="flex items-center justify-between gap-4 text-sm">
+            <span className="text-gray-600">
+              Applications submitted this period
+            </span>
+            <span className="text-gray-500">
+              <strong className="text-black">{goalStats.submitted}</strong> /{" "}
+              {goalStats.goal} goal
+            </span>
+          </div>
+          <div
+            className="mt-2 w-full overflow-hidden"
+            style={{ height: 10, borderRadius: 6, backgroundColor: "#eceeed" }}
           >
-            <IconMail className="h-3.5 w-3.5" />
-            {checkingEmail ? "Checking email…" : "Check email"}
-          </button>
+            <div
+              style={{
+                width: `${goalStats.pct}%`,
+                height: "100%",
+                borderRadius: 6,
+                backgroundColor: "var(--color-lime-deep)",
+                transition: "width 200ms ease",
+              }}
+            />
+          </div>
+          <p className="mt-2 text-xs text-gray-400">{goalStats.helper}</p>
         </div>
       </div>
 
@@ -343,7 +481,7 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
       </div>
 
       <p className="mb-2 text-xs text-gray-500">
-        Showing {visibleJobs.length} of {jobs.length}
+        Showing {visibleJobs.length} of {rangedJobs.length}
       </p>
 
       <div

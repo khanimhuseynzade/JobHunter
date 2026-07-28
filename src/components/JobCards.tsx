@@ -43,8 +43,9 @@ export function JobCards({
       {jobs.map((job) => {
         const visited = visitedIds.has(job.id);
         const pressed = pressedId === job.id;
+        // Pressed = "committed": full 1px lime border, default fill kept.
         const cardStateClass = pressed
-          ? "border border-gray-200 border-b-lime-deep bg-white"
+          ? "border border-lime-deep bg-white"
           : "border border-gray-200 bg-white hover:border-gray-300";
         return (
           <div

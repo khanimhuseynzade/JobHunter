@@ -139,8 +139,9 @@ export function JobsTable({
           {jobs.map((job) => {
             const visited = visitedIds.has(job.id);
             const pressed = pressedId === job.id;
-            // Pressed keeps the same fill/hover and shape as any other row —
-            // only the bottom divider stroke is recolored to mark it.
+            // Pressed = "committed": a 3px lime bar snaps in on the left edge
+            // (inset shadow, so no layout shift) and the fill deepens to
+            // lime-100 — a stronger tint than the lime-50 hover.
             return (
               <tr
                 key={job.id}
@@ -148,8 +149,10 @@ export function JobsTable({
                   onRowOpen(job.id);
                   window.open(job.applyUrl, "_blank", "noopener,noreferrer");
                 }}
-                className={`cursor-pointer border-b transition-colors hover:bg-lime-100 ${
-                  pressed ? "border-lime-deep" : "border-gray-100"
+                className={`cursor-pointer border-b border-gray-100 transition-colors ${
+                  pressed
+                    ? "bg-lime-100 shadow-[inset_3px_0_0_0_var(--color-lime-deep)]"
+                    : "hover:bg-lime-50"
                 } ${job.possiblyClosed ? "opacity-70" : ""}`}
               >
                 <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
