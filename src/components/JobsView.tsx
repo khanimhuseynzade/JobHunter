@@ -86,11 +86,21 @@ function filterJobsLocally(jobs: Job[], query: string): Job[] {
   });
 }
 
-export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
+export function JobsView({
+  initialJobs,
+  initialQuery = "",
+  initialShowSkipped = false,
+  initialShowClosed = false,
+}: {
+  initialJobs: Job[];
+  initialQuery?: string;
+  initialShowSkipped?: boolean;
+  initialShowClosed?: boolean;
+}) {
   const [jobs, setJobs] = useState(initialJobs);
-  const [showSkipped, setShowSkipped] = useState(false);
-  const [showClosed, setShowClosed] = useState(false);
-  const [query, setQuery] = useState("");
+  const [showSkipped, setShowSkipped] = useState(initialShowSkipped);
+  const [showClosed, setShowClosed] = useState(initialShowClosed);
+  const [query, setQuery] = useState(initialQuery);
   const [sortKey, setSortKey] = useState<JobSortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDirection>("asc");
   const [lastSync, setLastSync] = useState<string | null>(null);
@@ -149,19 +159,18 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
     }
   }, [showSkipped, showClosed, debouncedQuery]);
 
+  // Sort is client-only (the server sends a pre-sorted default list), so we
+  // restore it from the URL here. Query/filters are seeded from server props
+  // (see JobsPage) to keep the initial count consistent and avoid a refetch.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const q = params.get("q");
     const sort = params.get("sort");
     const dir = params.get("dir");
 
-    if (q) setQuery(q);
     if (sort && (SORT_KEYS as string[]).includes(sort)) {
       setSortKey(sort as JobSortKey);
     }
     if (dir === "asc" || dir === "desc") setSortDir(dir);
-    if (params.get("showSkipped") === "true") setShowSkipped(true);
-    if (params.get("showClosed") === "true") setShowClosed(true);
   }, []);
 
   useEffect(() => {
