@@ -143,21 +143,28 @@ export function JobsView({
 
   const debouncedQuery = useDebouncedValue(query, 300);
 
-  const loadJobs = useCallback(async () => {
+  // Serialize the current filter state into the query string used for
+  // /api/jobs. Kept in one place so the "did the filters change?" check and
+  // the actual fetch always agree.
+  const buildJobsParams = useCallback(() => {
     const params = new URLSearchParams();
     if (showSkipped) params.set("showSkipped", "true");
     if (showClosed) params.set("showClosed", "true");
     if (debouncedQuery) params.set("q", debouncedQuery);
+    return params.toString();
+  }, [showSkipped, showClosed, debouncedQuery]);
 
+  const loadJobs = useCallback(async () => {
+    const qs = buildJobsParams();
     setLoadingJobs(true);
     try {
-      const jobsRes = await fetch(`/api/jobs?${params}`);
+      const jobsRes = await fetch(`/api/jobs?${qs}`);
       const data = await jobsRes.json();
       setJobs(data);
     } finally {
       setLoadingJobs(false);
     }
-  }, [showSkipped, showClosed, debouncedQuery]);
+  }, [buildJobsParams]);
 
   // Sort is client-only (the server sends a pre-sorted default list), so we
   // restore it from the URL here. Query/filters are seeded from server props
@@ -229,14 +236,26 @@ export function JobsView({
     });
   }
 
-  const skipInitialJobsFetch = useRef(true);
+  // The server already rendered `initialJobs` for the initial filter state, so
+  // seed the "last fetched" params with those. We only refetch when the filters
+  // actually change from what the server sent. This avoids the post-mount
+  // refetch that flickered the job count — and is StrictMode-safe (unlike a
+  // one-shot "skip first run" ref, which the double-invoked effect defeats).
+  const lastFetchedParams = useRef<string | null>(null);
+  if (lastFetchedParams.current === null) {
+    const params = new URLSearchParams();
+    if (initialShowSkipped) params.set("showSkipped", "true");
+    if (initialShowClosed) params.set("showClosed", "true");
+    if (initialQuery) params.set("q", initialQuery);
+    lastFetchedParams.current = params.toString();
+  }
+
   useEffect(() => {
-    if (skipInitialJobsFetch.current) {
-      skipInitialJobsFetch.current = false;
-      return;
-    }
+    const params = buildJobsParams();
+    if (params === lastFetchedParams.current) return;
+    lastFetchedParams.current = params;
     loadJobs();
-  }, [loadJobs]);
+  }, [buildJobsParams, loadJobs]);
 
   // Jobs scoped to the selected range (by firstSeenAt). Shared by the stats
   // card and the table/cards below so the whole view reflects the range.
