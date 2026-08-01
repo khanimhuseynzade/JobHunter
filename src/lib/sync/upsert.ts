@@ -40,41 +40,47 @@ export async function upsertSyncJobs(
       .where(eq(jobsTable.externalKey, job.externalKey))
       .limit(1);
 
+    const mutableFields = {
+      role: job.role,
+      company: job.company,
+      location: job.location,
+      workMode: job.workMode,
+      postedDate: job.postedDate,
+      latencyDays: job.latencyDays ?? latencyFromPosted(job.postedDate),
+      sourceType: job.sourceType,
+      sourceName: job.sourceName,
+      applyUrl: job.applyUrl,
+      lastSeenAt: syncStartedAt,
+      possiblyClosed: false,
+    };
+
     if (existing) {
       await db
         .update(jobsTable)
-        .set({
-          role: job.role,
-          company: job.company,
-          location: job.location,
-          workMode: job.workMode,
-          postedDate: job.postedDate,
-          latencyDays: job.latencyDays ?? latencyFromPosted(job.postedDate),
-          sourceType: job.sourceType,
-          sourceName: job.sourceName,
-          applyUrl: job.applyUrl,
-          lastSeenAt: syncStartedAt,
-          possiblyClosed: false,
-        })
+        .set(mutableFields)
         .where(eq(jobsTable.externalKey, job.externalKey));
       jobsUpdated += 1;
     } else {
-      await db.insert(jobsTable).values({
-        externalKey: job.externalKey,
-        role: job.role,
-        company: job.company,
-        location: job.location,
-        workMode: job.workMode,
-        postedDate: job.postedDate,
-        latencyDays: job.latencyDays ?? latencyFromPosted(job.postedDate),
-        sourceType: job.sourceType,
-        sourceName: job.sourceName,
-        applyUrl: job.applyUrl,
-        status: null,
-        possiblyClosed: false,
-        firstSeenAt: syncStartedAt,
-        lastSeenAt: syncStartedAt,
-      });
+      // Atomic upsert: overlapping sync runs (the jobs page fires
+      // reconcileJobsIfNeeded via `after()` with no durable lock, and Vercel
+      // instances don't share the in-memory guard) can both see "not existing"
+      // and race to insert the same externalKey. A plain insert throws a
+      // duplicate-key error that aborts the whole sync before writeSyncLog runs,
+      // which keeps the data perpetually "stale" and re-runs the sync on nearly
+      // every page load — making the job count drift on reload. ON CONFLICT
+      // turns that race into a harmless update instead.
+      await db
+        .insert(jobsTable)
+        .values({
+          externalKey: job.externalKey,
+          status: null,
+          firstSeenAt: syncStartedAt,
+          ...mutableFields,
+        })
+        .onConflictDoUpdate({
+          target: jobsTable.externalKey,
+          set: mutableFields,
+        });
       jobsNew += 1;
     }
   }
