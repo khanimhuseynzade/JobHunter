@@ -474,8 +474,8 @@ export function JobsView({
           <div
             className="mx-6 pb-6"
             style={{
-              marginTop: 18,
-              paddingTop: 18,
+              marginTop: 12,
+              paddingTop: 12,
               borderTop: "1px solid #eceeed",
             }}
           >
