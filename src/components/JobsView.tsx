@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Job, JobStatus } from "@/types";
 import { getLastSyncLabel } from "@/lib/seed";
-import { formatDisplayLocation } from "@/lib/location";
+import { isPolandLocation } from "@/lib/location";
 import { isToday } from "@/lib/job-dates";
 import {
   sortJobList,
@@ -113,9 +113,7 @@ export function JobsView({
   const [visitedIds, setVisitedIds] = useState<Set<string>>(new Set());
   const [pressedId, setPressedId] = useState<string | null>(null);
   const [range, setRange] = useState<RangeKey>("7d");
-  const [selectedLocations, setSelectedLocations] = useState<Set<string>>(
-    new Set()
-  );
+  const [polandOnly, setPolandOnly] = useState(false);
   const [toast, setToast] = useState<{ id: number; message: string } | null>(
     null
   );
@@ -268,28 +266,18 @@ export function JobsView({
     return jobs.filter((job) => new Date(job.firstSeenAt).getTime() >= cutoff);
   }, [jobs, range]);
 
-  // Location options are derived from the ranged jobs (independent of the
-  // search box and the location filter itself) so the list and counts stay
-  // stable while the user narrows down. Locations use the same normalized
-  // label shown in the table (e.g. "Warsaw, Poland", "Remote").
-  const locationOptions = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const job of rangedJobs) {
-      const label = formatDisplayLocation(job.location);
-      counts.set(label, (counts.get(label) ?? 0) + 1);
-    }
-    return [...counts.entries()]
-      .map(([location, count]) => ({ location, count }))
-      .sort((a, b) => b.count - a.count || a.location.localeCompare(b.location));
-  }, [rangedJobs]);
+  // Jobs scoped to the range plus the "Poland only" toggle. Stats, the search
+  // results, and the "of N" count all derive from this so the header numbers
+  // update when Poland-only is switched on.
+  const scopedJobs = useMemo(() => {
+    if (!polandOnly) return rangedJobs;
+    return rangedJobs.filter((job) => isPolandLocation(job.location));
+  }, [rangedJobs, polandOnly]);
 
-  const filteredJobs = useMemo(() => {
-    const byQuery = filterJobsLocally(rangedJobs, query);
-    if (selectedLocations.size === 0) return byQuery;
-    return byQuery.filter((job) =>
-      selectedLocations.has(formatDisplayLocation(job.location))
-    );
-  }, [rangedJobs, query, selectedLocations]);
+  const filteredJobs = useMemo(
+    () => filterJobsLocally(scopedJobs, query),
+    [scopedJobs, query]
+  );
 
   const visibleJobs = useMemo(() => {
     if (!sortKey) return filteredJobs;
@@ -301,12 +289,12 @@ export function JobsView({
   // rejected counts reflect jobs first seen within the window.
   const jobStats = useMemo(
     () => ({
-      total: rangedJobs.length,
-      addedToday: rangedJobs.filter((job) => isToday(job.firstSeenAt)).length,
-      applied: rangedJobs.filter((job) => job.status === "applied").length,
-      rejected: rangedJobs.filter((job) => job.status === "rejected").length,
+      total: scopedJobs.length,
+      addedToday: scopedJobs.filter((job) => isToday(job.firstSeenAt)).length,
+      applied: scopedJobs.filter((job) => job.status === "applied").length,
+      rejected: scopedJobs.filter((job) => job.status === "rejected").length,
     }),
-    [rangedJobs]
+    [scopedJobs]
   );
 
   const goalStats = useMemo(() => {
@@ -320,22 +308,6 @@ export function JobsView({
         : `You've hit ${periodTarget} — nice work`;
     return { goal, submitted, remaining, pct, helper };
   }, [jobStats.applied, range]);
-
-  function toggleLocation(location: string) {
-    setSelectedLocations((prev) => {
-      const next = new Set(prev);
-      if (next.has(location)) {
-        next.delete(location);
-      } else {
-        next.add(location);
-      }
-      return next;
-    });
-  }
-
-  function clearLocations() {
-    setSelectedLocations(new Set());
-  }
 
   function handleSortChange(key: JobSortKey) {
     if (sortKey === key) {
@@ -546,15 +518,13 @@ export function JobsView({
           onShowSkippedChange={setShowSkipped}
           showClosed={showClosed}
           onShowClosedChange={setShowClosed}
-          locationOptions={locationOptions}
-          selectedLocations={selectedLocations}
-          onToggleLocation={toggleLocation}
-          onClearLocations={clearLocations}
+          polandOnly={polandOnly}
+          onPolandOnlyChange={setPolandOnly}
         />
       </div>
 
       <p className="mb-2 text-xs text-gray-500">
-        Showing {visibleJobs.length} of {rangedJobs.length}
+        Showing {visibleJobs.length} of {scopedJobs.length}
       </p>
 
       <div

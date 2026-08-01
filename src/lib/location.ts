@@ -101,6 +101,19 @@ function normalizeCountry(part: string): string | null {
   return COUNTRY_ALIASES[k] ?? null;
 }
 
+/** True when any part of the location resolves to Poland (country or a Polish city). */
+export function isPolandLocation(location: string): boolean {
+  const raw = location?.trim();
+  if (!raw) return false;
+
+  for (const part of splitParts(raw)) {
+    if (normalizeCountry(part) === "Poland") return true;
+    const city = normalizeCity(part);
+    if (city && POLISH_CITIES.has(city)) return true;
+  }
+  return false;
+}
+
 /** Collapse multi-city/region strings to one city + one country. Prefers Warsaw, Poland. */
 export function formatDisplayLocation(location: string): string {
   const raw = location?.trim();
