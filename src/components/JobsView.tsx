@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Job, JobStatus } from "@/types";
 import { getLastSyncLabel } from "@/lib/seed";
+import { formatDisplayLocation } from "@/lib/location";
 import { isToday } from "@/lib/job-dates";
 import {
   sortJobList,
@@ -112,6 +113,9 @@ export function JobsView({
   const [visitedIds, setVisitedIds] = useState<Set<string>>(new Set());
   const [pressedId, setPressedId] = useState<string | null>(null);
   const [range, setRange] = useState<RangeKey>("7d");
+  const [selectedLocations, setSelectedLocations] = useState<Set<string>>(
+    new Set()
+  );
   const [toast, setToast] = useState<{ id: number; message: string } | null>(
     null
   );
@@ -264,10 +268,28 @@ export function JobsView({
     return jobs.filter((job) => new Date(job.firstSeenAt).getTime() >= cutoff);
   }, [jobs, range]);
 
-  const filteredJobs = useMemo(
-    () => filterJobsLocally(rangedJobs, query),
-    [rangedJobs, query]
-  );
+  // Location options are derived from the ranged jobs (independent of the
+  // search box and the location filter itself) so the list and counts stay
+  // stable while the user narrows down. Locations use the same normalized
+  // label shown in the table (e.g. "Warsaw, Poland", "Remote").
+  const locationOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const job of rangedJobs) {
+      const label = formatDisplayLocation(job.location);
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([location, count]) => ({ location, count }))
+      .sort((a, b) => b.count - a.count || a.location.localeCompare(b.location));
+  }, [rangedJobs]);
+
+  const filteredJobs = useMemo(() => {
+    const byQuery = filterJobsLocally(rangedJobs, query);
+    if (selectedLocations.size === 0) return byQuery;
+    return byQuery.filter((job) =>
+      selectedLocations.has(formatDisplayLocation(job.location))
+    );
+  }, [rangedJobs, query, selectedLocations]);
 
   const visibleJobs = useMemo(() => {
     if (!sortKey) return filteredJobs;
@@ -298,6 +320,22 @@ export function JobsView({
         : `You've hit ${periodTarget} — nice work`;
     return { goal, submitted, remaining, pct, helper };
   }, [jobStats.applied, range]);
+
+  function toggleLocation(location: string) {
+    setSelectedLocations((prev) => {
+      const next = new Set(prev);
+      if (next.has(location)) {
+        next.delete(location);
+      } else {
+        next.add(location);
+      }
+      return next;
+    });
+  }
+
+  function clearLocations() {
+    setSelectedLocations(new Set());
+  }
 
   function handleSortChange(key: JobSortKey) {
     if (sortKey === key) {
@@ -508,6 +546,10 @@ export function JobsView({
           onShowSkippedChange={setShowSkipped}
           showClosed={showClosed}
           onShowClosedChange={setShowClosed}
+          locationOptions={locationOptions}
+          selectedLocations={selectedLocations}
+          onToggleLocation={toggleLocation}
+          onClearLocations={clearLocations}
         />
       </div>
 
