@@ -36,6 +36,27 @@ interface AshbyJob {
   isRemote?: boolean;
 }
 
+interface SmartRecruitersPosting {
+  id: string;
+  name: string;
+  releasedDate?: string;
+  location?: {
+    city?: string;
+    region?: string;
+    country?: string;
+    remote?: boolean;
+    hybrid?: boolean;
+    fullLocation?: string;
+  };
+}
+
+interface SmartRecruitersResponse {
+  offset: number;
+  limit: number;
+  totalFound: number;
+  content?: SmartRecruitersPosting[];
+}
+
 async function fetchGreenhouse(
   company: CompanyConfig,
   boardSlug: string
@@ -138,6 +159,73 @@ async function fetchAshby(
     }));
 }
 
+/**
+ * SmartRecruiters exposes a paginated public postings API (max 100 per page).
+ * We page through until the reported total is reached, with a safety cap so a
+ * very large board can't stall the sync.
+ */
+async function fetchSmartRecruiters(
+  company: CompanyConfig,
+  boardSlug: string
+): Promise<SyncJobInput[]> {
+  const PAGE = 100;
+  const MAX_PAGES = 20;
+  const results: SyncJobInput[] = [];
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const offset = page * PAGE;
+    const res = await fetch(
+      `https://api.smartrecruiters.com/v1/companies/${boardSlug}/postings?limit=${PAGE}&offset=${offset}`,
+      { headers: { Accept: "application/json", "User-Agent": "Board/1.0" } }
+    );
+    if (!res.ok) {
+      throw new Error(`SmartRecruiters ${boardSlug}: ${res.status}`);
+    }
+
+    const data = (await res.json()) as SmartRecruitersResponse;
+    const postings = data.content ?? [];
+
+    for (const posting of postings) {
+      if (!matchesRole(posting.name)) continue;
+      const postedDate = posting.releasedDate
+        ? new Date(posting.releasedDate).toISOString()
+        : null;
+      if (!isWithinMaxAge(postedDate, `${company.name} careers`)) continue;
+
+      const loc = posting.location;
+      const location = formatLocation([
+        loc?.fullLocation ?? "",
+        loc?.city ?? "",
+        loc?.region ?? "",
+        loc?.country ? loc.country.toUpperCase() : "",
+        loc?.remote ? "Remote" : "",
+        loc?.hybrid ? "Hybrid" : "",
+      ]);
+
+      results.push({
+        externalKey: `company:smartrecruiters:${boardSlug}:${posting.id}`,
+        role: posting.name,
+        company: company.name,
+        location,
+        workMode: inferWorkMode({
+          fullyRemote: loc?.remote,
+          hybridDesc: loc?.hybrid ? "hybrid" : null,
+          locationText: location,
+        }),
+        postedDate,
+        latencyDays: null,
+        sourceType: "company",
+        sourceName: `${company.name} careers`,
+        applyUrl: `https://jobs.smartrecruiters.com/${boardSlug}/${posting.id}`,
+      });
+    }
+
+    if (offset + PAGE >= data.totalFound || postings.length === 0) break;
+  }
+
+  return results;
+}
+
 export async function fetchCompanyJobs(
   company: CompanyConfig
 ): Promise<SyncJobInput[]> {
@@ -146,5 +234,7 @@ export async function fetchCompanyJobs(
   const { provider, boardSlug } = company.ats;
   if (provider === "greenhouse") return fetchGreenhouse(company, boardSlug);
   if (provider === "lever") return fetchLever(company, boardSlug);
+  if (provider === "smartrecruiters")
+    return fetchSmartRecruiters(company, boardSlug);
   return fetchAshby(company, boardSlug);
 }
