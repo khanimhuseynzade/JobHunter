@@ -393,7 +393,7 @@ export function JobsView({
     <div>
       <div className="mb-8 rounded-2xl border border-gray-200 bg-white">
         {/* Header stats block — count, range toggle, email button */}
-        <div className="px-6 pt-6">
+        <div className={`px-6 pt-6${range === "7d" ? "" : " pb-6"}`}>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <p className="text-sm text-gray-500">Jobs tracked</p>
@@ -469,40 +469,42 @@ export function JobsView({
           </div>
         </div>
 
-        {/* Divider + goal-progress block */}
-        <div
-          className="mx-6 pb-6"
-          style={{
-            marginTop: 18,
-            paddingTop: 18,
-            borderTop: "1px solid #eceeed",
-          }}
-        >
-          <div className="flex items-center justify-between gap-4 text-sm">
-            <span className="text-gray-600">
-              Applications submitted this period
-            </span>
-            <span className="text-gray-500">
-              <strong className="text-black">{goalStats.submitted}</strong> /{" "}
-              {goalStats.goal} goal
-            </span>
-          </div>
+        {/* Divider + goal-progress block — weekly target only */}
+        {range === "7d" && (
           <div
-            className="mt-2 w-full overflow-hidden"
-            style={{ height: 10, borderRadius: 6, backgroundColor: "#eceeed" }}
+            className="mx-6 pb-6"
+            style={{
+              marginTop: 18,
+              paddingTop: 18,
+              borderTop: "1px solid #eceeed",
+            }}
           >
+            <div className="flex items-center justify-between gap-4 text-sm">
+              <span className="text-gray-600">
+                Applications submitted this period
+              </span>
+              <span className="text-gray-500">
+                <strong className="text-black">{goalStats.submitted}</strong> /{" "}
+                {goalStats.goal} goal
+              </span>
+            </div>
             <div
-              style={{
-                width: `${goalStats.pct}%`,
-                height: "100%",
-                borderRadius: 6,
-                backgroundColor: "var(--color-lime-deep)",
-                transition: "width 200ms ease",
-              }}
-            />
+              className="mt-2 w-full overflow-hidden"
+              style={{ height: 10, borderRadius: 6, backgroundColor: "#eceeed" }}
+            >
+              <div
+                style={{
+                  width: `${goalStats.pct}%`,
+                  height: "100%",
+                  borderRadius: 6,
+                  backgroundColor: "var(--color-lime-deep)",
+                  transition: "width 200ms ease",
+                }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-gray-400">{goalStats.helper}</p>
           </div>
-          <p className="mt-2 text-xs text-gray-400">{goalStats.helper}</p>
-        </div>
+        )}
       </div>
 
       <SuggestionsPanel
