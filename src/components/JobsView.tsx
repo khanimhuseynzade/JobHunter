@@ -309,14 +309,6 @@ export function JobsView({
     return { goal, submitted, remaining, pct, helper };
   }, [jobStats.applied, range]);
 
-  // Poland-only is meant to surface every Poland role regardless of when it
-  // was seen, so switching it on snaps the range to "All". Otherwise the 7d
-  // window would keep hiding most matches (and today's "added" count/badges).
-  function handlePolandOnlyChange(value: boolean) {
-    setPolandOnly(value);
-    if (value) setRange("all");
-  }
-
   function handleSortChange(key: JobSortKey) {
     if (sortKey === key) {
       setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
@@ -529,7 +521,7 @@ export function JobsView({
           showClosed={showClosed}
           onShowClosedChange={setShowClosed}
           polandOnly={polandOnly}
-          onPolandOnlyChange={handlePolandOnlyChange}
+          onPolandOnlyChange={setPolandOnly}
         />
       </div>
 
