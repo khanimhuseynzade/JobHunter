@@ -88,11 +88,13 @@ function filterJobsLocally(jobs: Job[], query: string): Job[] {
 
 export function JobsView({
   initialJobs,
+  initialLastSync = null,
   initialQuery = "",
   initialShowSkipped = false,
   initialShowClosed = false,
 }: {
   initialJobs: Job[];
+  initialLastSync?: string | null;
   initialQuery?: string;
   initialShowSkipped?: boolean;
   initialShowClosed?: boolean;
@@ -103,7 +105,7 @@ export function JobsView({
   const [query, setQuery] = useState(initialQuery);
   const [sortKey, setSortKey] = useState<JobSortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDirection>("asc");
-  const [lastSync, setLastSync] = useState<string | null>(null);
+  const [lastSync, setLastSync] = useState<string | null>(initialLastSync);
   const [suggestions, setSuggestions] = useState<EmailSuggestion[]>([]);
   const [checkingEmail, setCheckingEmail] = useState(false);
   const [loadingJobs, setLoadingJobs] = useState(false);
@@ -195,14 +197,10 @@ export function JobsView({
     window.history.replaceState(null, "", nextUrl);
   }, [debouncedQuery, sortKey, sortDir, showSkipped, showClosed]);
 
+  // `lastSync` is seeded from the server (see JobsPage) so the "Last updated"
+  // label is correct on first paint and never flips on mount. We only fetch
+  // suggestions and restore locally-stored visited rows here.
   useEffect(() => {
-    fetch("/api/sync")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((sync) => {
-        if (sync) setLastSync(sync.latest);
-      })
-      .catch(() => {});
-
     fetch("/api/suggestions")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -393,7 +391,12 @@ export function JobsView({
               </div>
               <p className="mt-1 text-xs text-gray-400">
                 Last updated:{" "}
-                <span key={lastSync} className="animate-flash rounded px-1">
+                <span
+                  key={lastSync}
+                  className={`rounded px-1${
+                    lastSync !== initialLastSync ? " animate-flash" : ""
+                  }`}
+                >
                   {getLastSyncLabel(lastSync)}
                 </span>
               </p>

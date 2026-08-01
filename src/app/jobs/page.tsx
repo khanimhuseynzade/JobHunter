@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import { fetchJobs } from "@/lib/jobs";
+import { fetchSyncStatus } from "@/lib/sync-log";
 import { reconcileJobsIfNeeded } from "@/lib/sync/reconcile";
 import { JobsView } from "@/components/JobsView";
 
@@ -22,13 +23,21 @@ export default async function JobsPage({
   const showClosed = first(sp.showClosed) === "true";
   const q = first(sp.q)?.trim() || undefined;
 
-  // Fetch with the same filters the client will apply, so the initial
-  // server-rendered count matches the client and doesn't flicker on reload.
-  const jobs = await fetchJobs({ showSkipped, showClosed, q });
+  // Fetch jobs and the last-sync timestamp together, with the same filters the
+  // client will apply. Both are server-rendered so the initial count and the
+  // "Last updated" label are already correct on first paint — the client never
+  // refetches them, so nothing flips or flickers after mount. The page is
+  // force-dynamic, so a reload always reflects the current DB state (which only
+  // changes when the twice-daily cron sync runs).
+  const [jobs, sync] = await Promise.all([
+    fetchJobs({ showSkipped, showClosed, q }),
+    fetchSyncStatus(),
+  ]);
 
   return (
     <JobsView
       initialJobs={jobs}
+      initialLastSync={sync.latest}
       initialQuery={q ?? ""}
       initialShowSkipped={showSkipped}
       initialShowClosed={showClosed}

@@ -167,13 +167,37 @@ export function sortJobs(jobs: Job[]): Job[] {
   });
 }
 
+// Sync/email logs live in Postgres `timestamp` columns (no timezone), so the
+// raw value looks like "2026-07-31 23:17:07.868" with no offset marker. We
+// render it in a fixed zone so the formatted string is identical on the server
+// (Vercel runs in UTC) and in the browser — otherwise the label would differ
+// between SSR and hydration and flip after mount.
+const DISPLAY_TIME_ZONE = "Europe/Warsaw";
+
+function parseSyncTimestamp(value: string): Date | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  // Already carries timezone info (e.g. an ISO string with `Z` or ±hh:mm).
+  const hasTimezone = /[zZ]$/.test(trimmed) || /[+-]\d{2}:?\d{2}$/.test(trimmed);
+  const normalized = hasTimezone ? trimmed : `${trimmed.replace(" ", "T")}Z`;
+
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 export function getLastSyncLabel(isoDate?: string | null): string {
-  const d = isoDate ? new Date(isoDate) : new Date();
-  return d.toLocaleString("en-GB", {
+  if (!isoDate) return "Never";
+
+  const date = parseSyncTimestamp(isoDate);
+  if (!date) return "Never";
+
+  return date.toLocaleString("en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: DISPLAY_TIME_ZONE,
   });
 }

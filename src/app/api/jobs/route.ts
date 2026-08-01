@@ -4,6 +4,8 @@ import type { JobStatus, WorkMode } from "@/types";
 
 const WORK_MODES = new Set<WorkMode>(["remote", "hybrid", "on_site"]);
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const showSkipped = searchParams.get("showSkipped") === "true";
@@ -21,7 +23,9 @@ export async function GET(request: Request) {
     q,
     workMode,
   });
-  return NextResponse.json(jobs);
+  return NextResponse.json(jobs, {
+    headers: { "Cache-Control": "no-store" },
+  });
 }
 
 export async function PATCH(request: Request) {
