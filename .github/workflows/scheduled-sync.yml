@@ -1,0 +1,59 @@
+name: Scheduled job sync
+
+# Triggers the app's sync-all endpoint on a fixed schedule. This replaces
+# Vercel Cron (unreliable on the Hobby plan) with a plan-independent scheduler.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   CRON_SECRET                     - must match CRON_SECRET in Vercel Production
+#   VERCEL_AUTOMATION_BYPASS_SECRET - from Vercel: Settings -> Deployment
+#                                     Protection -> Protection Bypass for
+#                                     Automation (needed because SSO is on)
+# Optional repository variable:
+#   PROD_URL - base URL of the deployment (defaults below)
+
+on:
+  schedule:
+    - cron: "0 8 * * *" # 08:00 UTC (10:00 CEST)
+    - cron: "0 13 * * *" # 13:00 UTC (15:00 CEST)
+  workflow_dispatch: {} # allows manual "Run workflow" from the Actions tab
+
+concurrency:
+  group: scheduled-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Trigger sync-all
+        env:
+          BASE_URL: ${{ vars.PROD_URL || 'https://job-hunter-six-bice.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "::error::CRON_SECRET repository secret is not set"; exit 1
+          fi
+
+          echo "Triggering ${BASE_URL}/api/cron/sync-all"
+          resp=$(curl -sS -m 300 -w '\n%{http_code}' \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H "x-vercel-protection-bypass: ${BYPASS}" \
+            "${BASE_URL}/api/cron/sync-all")
+
+          body=$(printf '%s' "$resp" | sed '$d')
+          code=$(printf '%s' "$resp" | tail -n1)
+          echo "HTTP ${code}"
+          echo "${body}"
+
+          if [ "${code}" != "200" ]; then
+            echo "::error::sync-all returned HTTP ${code} (SSO wall returns 401 -> check the bypass secret)"
+            exit 1
+          fi
+          if printf '%s' "${body}" | grep -q '"ok":false'; then
+            echo "::error::sync-all completed but reported ok:false"
+            exit 1
+          fi
+          echo "Sync triggered successfully."

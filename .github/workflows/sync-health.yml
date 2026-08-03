@@ -1,0 +1,48 @@
+name: Sync freshness check
+
+# Runs shortly after each scheduled sync and fails if the last sync is older
+# than MAX_AGE_HOURS. A failed run notifies the repo owner by email, so a
+# silently-stopped scheduler surfaces instead of going unnoticed.
+#
+# Uses the /api/sync status endpoint (read-only). SSO is on, so the automation
+# bypass header is sent as well.
+
+on:
+  schedule:
+    - cron: "40 8 * * *" # ~40 min after the 08:00 sync
+    - cron: "40 13 * * *" # ~40 min after the 13:00 sync
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify last sync is recent
+        env:
+          BASE_URL: ${{ vars.PROD_URL || 'https://job-hunter-six-bice.vercel.app' }}
+          BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          MAX_AGE_HOURS: "18"
+        run: |
+          set -euo pipefail
+          resp=$(curl -sS -m 30 \
+            -H "x-vercel-protection-bypass: ${BYPASS}" \
+            "${BASE_URL}/api/sync")
+          echo "${resp}"
+
+          latest=$(printf '%s' "${resp}" | grep -o '"latest":"[^"]*"' | sed 's/.*"latest":"//; s/"$//')
+          if [ -z "${latest}" ]; then
+            echo "::error::/api/sync returned no 'latest' timestamp (SSO wall? check the bypass secret)"
+            exit 1
+          fi
+
+          latest_clean="${latest%.*}" # drop fractional seconds
+          latest_epoch=$(date -u -d "${latest_clean} UTC" +%s)
+          now=$(date -u +%s)
+          age_h=$(( (now - latest_epoch) / 3600 ))
+
+          echo "Last sync: ${latest} (${age_h}h ago, threshold ${MAX_AGE_HOURS}h)"
+          if [ "${age_h}" -gt "${MAX_AGE_HOURS}" ]; then
+            echo "::error::Last sync is ${age_h}h old (> ${MAX_AGE_HOURS}h) — the scheduler may have stopped"
+            exit 1
+          fi
