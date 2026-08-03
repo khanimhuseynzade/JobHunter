@@ -384,8 +384,10 @@ export function JobsView({
   return (
     <div>
       <div className="mb-8 rounded-2xl border border-gray-200 bg-white">
-        {/* Header stats block — count, range toggle, email button */}
-        <div className={`px-6 pt-6${range === "7d" ? "" : " pb-6"}`}>
+        {/* Header stats block — count, range toggle, email button. Both class
+            strings are written out in full so Tailwind's scanner generates
+            every utility (a `pt-6${...}` template glues the token and drops it). */}
+        <div className={range === "7d" ? "px-6 pt-6" : "px-6 pt-6 pb-6"}>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <p className="text-sm text-gray-500">Jobs tracked</p>
