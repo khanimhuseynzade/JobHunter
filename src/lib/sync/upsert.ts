@@ -1,12 +1,8 @@
-import { and, eq, inArray, lt } from "drizzle-orm";
+import { and, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { jobs as jobsTable, syncLogs } from "@/lib/schema";
 import { filters } from "../../../config/filters";
 import { dedupeSyncJobs } from "./dedupe";
-import {
-  isOldEnoughToClose,
-  shouldMarkPossiblyClosed,
-} from "./possibly-closed";
 import type { SyncJobInput, SyncResult } from "./types";
 
 function latencyFromPosted(postedDate: string | null): number | null {
@@ -51,6 +47,9 @@ export async function upsertSyncJobs(
       sourceName: job.sourceName,
       applyUrl: job.applyUrl,
       lastSeenAt: syncStartedAt,
+      // Seen this run, so it's active again: clear the miss counter and any
+      // stale "possibly closed" flag.
+      missedSyncs: 0,
       possiblyClosed: false,
     };
 
@@ -85,47 +84,21 @@ export async function upsertSyncJobs(
     }
   }
 
+  // Any job from this source that wasn't returned this run is a miss. Bump its
+  // counter; pruneClosedJobs() (run once after all sources) turns a run of
+  // misses into a deletion. We only touch this source's rows, and only when the
+  // source actually returned something, so a failed/empty fetch never penalizes
+  // its listings.
   if (seenKeys.length > 0) {
-    const missed = await db
-      .select({
-        id: jobsTable.id,
-        postedDate: jobsTable.postedDate,
-        latencyDays: jobsTable.latencyDays,
-        firstSeenAt: jobsTable.firstSeenAt,
-      })
-      .from(jobsTable)
+    await db
+      .update(jobsTable)
+      .set({ missedSyncs: sql`${jobsTable.missedSyncs} + 1` })
       .where(
         and(
           eq(jobsTable.sourceName, sourceName),
           lt(jobsTable.lastSeenAt, syncStartedAt)
         )
       );
-
-    const toClose = missed.filter((job) => shouldMarkPossiblyClosed(job));
-    if (toClose.length > 0) {
-      await db
-        .update(jobsTable)
-        .set({ possiblyClosed: true })
-        .where(
-          inArray(
-            jobsTable.id,
-            toClose.map((job) => job.id)
-          )
-        );
-    }
-
-    const toReopen = missed.filter((job) => !shouldMarkPossiblyClosed(job));
-    if (toReopen.length > 0) {
-      await db
-        .update(jobsTable)
-        .set({ possiblyClosed: false })
-        .where(
-          inArray(
-            jobsTable.id,
-            toReopen.map((job) => job.id)
-          )
-        );
-    }
   }
 
   return {
@@ -150,67 +123,40 @@ export async function writeSyncLog(result: SyncResult): Promise<void> {
   });
 }
 
-export async function markGlobalStaleJobs(): Promise<number> {
+/**
+ * Delete listings that have gone missing from too many consecutive syncs — they
+ * are treated as closed. Listings the user has acted on (any manual status) are
+ * never deleted; instead they're flagged as possibly closed so the record
+ * survives with a clear "listing gone" marker. Run once per sync, after every
+ * source has updated its miss counters.
+ */
+export async function pruneClosedJobs(): Promise<{ deleted: number }> {
   const db = getDb();
-  if (!db) return 0;
+  if (!db) return { deleted: 0 };
 
-  let marked = 0;
+  const threshold = filters.removeAfterMissedSyncs;
 
-  const wronglyClosed = await db
-    .select({
-      id: jobsTable.id,
-      postedDate: jobsTable.postedDate,
-      latencyDays: jobsTable.latencyDays,
-      firstSeenAt: jobsTable.firstSeenAt,
-    })
-    .from(jobsTable)
-    .where(eq(jobsTable.possiblyClosed, true));
-
-  const toReopen = wronglyClosed.filter((job) => !isOldEnoughToClose(job));
-  if (toReopen.length > 0) {
-    await db
-      .update(jobsTable)
-      .set({ possiblyClosed: false })
-      .where(
-        inArray(
-          jobsTable.id,
-          toReopen.map((job) => job.id)
-        )
-      );
-  }
-
-  const cutoff = new Date(
-    Date.now() - filters.staleAfterDays * 86400000
-  ).toISOString();
-
-  const stale = await db
-    .select({
-      id: jobsTable.id,
-      postedDate: jobsTable.postedDate,
-      latencyDays: jobsTable.latencyDays,
-      firstSeenAt: jobsTable.firstSeenAt,
-    })
-    .from(jobsTable)
+  const deleted = await db
+    .delete(jobsTable)
     .where(
-      and(
-        lt(jobsTable.lastSeenAt, cutoff),
-        eq(jobsTable.possiblyClosed, false)
-      )
-    );
+      and(gte(jobsTable.missedSyncs, threshold), isNull(jobsTable.status))
+    )
+    .returning({ id: jobsTable.id });
 
-  const toClose = stale.filter((job) => shouldMarkPossiblyClosed(job));
-  if (toClose.length === 0) return 0;
-
+  // Whatever survived past the threshold has a manual status — keep it but mark
+  // the listing as gone. Below the threshold the listing is still considered
+  // active, so make sure the flag is cleared (e.g. after it reappears).
   await db
     .update(jobsTable)
     .set({ possiblyClosed: true })
+    .where(gte(jobsTable.missedSyncs, threshold));
+
+  await db
+    .update(jobsTable)
+    .set({ possiblyClosed: false })
     .where(
-      inArray(
-        jobsTable.id,
-        toClose.map((row) => row.id)
-      )
+      and(lt(jobsTable.missedSyncs, threshold), eq(jobsTable.possiblyClosed, true))
     );
 
-  marked = toClose.length;
-  return marked;
+  return { deleted: deleted.length };
 }

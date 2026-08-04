@@ -3,7 +3,7 @@
 import type { Job, JobStatus } from "@/types";
 import { WORK_MODE_LABELS } from "@/types";
 import type { JobSortKey, SortDirection } from "@/lib/job-sort";
-import { isJobPostedToday } from "@/lib/job-dates";
+import { isJobPostedToday, jobPostedAgeDays } from "@/lib/job-dates";
 import { formatDisplayLocation } from "@/lib/location";
 import { StatusDropdown } from "./StatusDropdown";
 import { PostedTodayBadge } from "./PostedTodayBadge";
@@ -191,7 +191,7 @@ export function JobsTable({
                   {WORK_MODE_LABELS[job.workMode]}
                 </td>
                 <td className="px-4 py-3 text-gray-600">
-                  {formatLatency(job.latencyDays)}
+                  {formatLatency(jobPostedAgeDays(job))}
                 </td>
                 <td className="px-4 py-3 text-gray-600">{job.sourceName}</td>
               </tr>

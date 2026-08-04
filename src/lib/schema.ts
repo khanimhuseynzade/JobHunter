@@ -39,6 +39,10 @@ export const jobs = pgTable("jobs", {
   applyUrl: text("apply_url").notNull(),
   status: jobStatusEnum("status"),
   possiblyClosed: boolean("possibly_closed").notNull().default(false),
+  // Consecutive syncs (for this job's source) in which the listing was NOT
+  // returned. Reset to 0 whenever the job is seen again. Once it crosses
+  // filters.removeAfterMissedSyncs the listing is treated as closed.
+  missedSyncs: integer("missed_syncs").notNull().default(0),
   firstSeenAt: timestamp("first_seen_at", { mode: "string" })
     .notNull()
     .defaultNow(),

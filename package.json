@@ -14,6 +14,7 @@
     "db:migrate:error-status": "tsx scripts/migrate-add-error-status.ts",
     "db:migrate:statuses": "tsx scripts/migrate-statuses.ts",
     "db:migrate:email-suggestions": "tsx scripts/migrate-add-email-suggestions.ts",
+    "db:migrate:missed-syncs": "tsx scripts/migrate-add-missed-syncs.ts",
     "gmail:auth": "tsx scripts/gmail-auth.ts",
     "email:check": "tsx scripts/check-email.ts",
     "import:statuses": "tsx scripts/import-statuses-from-json.ts",

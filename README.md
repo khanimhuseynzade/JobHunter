@@ -172,7 +172,7 @@ packaging designer, marketing designer, content designer
 **Age filters:**
 
 - `maxAgeDays: 30` — only ingest listings posted within 30 days
-- `staleAfterDays: 45` — mark as "possibly closed" if not seen in 45 days
+- `removeAfterMissedSyncs: 5` — a listing gone from this many consecutive syncs is treated as closed and deleted (kept, and flagged "possibly closed", only if it has a manual status)
 
 **Per-source date policy** (`allowUnknownDate` in `config/filters.ts`):
 
@@ -262,7 +262,7 @@ External keys: `company:{provider}:{slug}:{jobId}` · Source name: `"{Company} c
 2. `dedupeSyncJobs()` on collected results
 3. `upsertSyncJobs()` per board source
 4. `cleanupDuplicateBoardJobs()` — remove DB duplicates by company + role
-5. `markGlobalStaleJobs()` — flag jobs not seen in 45 days
+5. `pruneClosedJobs()` — delete listings gone from the last 5 syncs (keep + flag those with a manual status)
 6. Write sync log
 
 **Company sync** (`runCompanySync`): same pattern, per company with ATS.
@@ -341,7 +341,7 @@ To adapt for a different role hunt:
 2. Edit `config/boards.ts` — enable/disable boards, change JJIT categories
 3. Edit `config/linkedin.ts` — change regions
 4. Edit `config/companies.ts` — add companies and ATS slugs
-5. Adjust `maxAgeDays` / `staleAfterDays` as needed
+5. Adjust `maxAgeDays` / `removeAfterMissedSyncs` as needed
 
 ## Project structure
 

@@ -11,7 +11,7 @@ import {
 import { fetchLinkedIn } from "./fetchers/linkedin";
 import { cleanupDuplicateBoardJobs } from "./cleanup-duplicates";
 import { dedupeSyncJobs } from "./dedupe";
-import { markGlobalStaleJobs, upsertSyncJobs, writeSyncLog } from "./upsert";
+import { pruneClosedJobs, upsertSyncJobs, writeSyncLog } from "./upsert";
 import type { SyncJobInput, BoardFetcherResult, SyncResult } from "./types";
 
 function normalizeBoardFetch(result: BoardFetcherResult): {
@@ -74,7 +74,7 @@ export async function runBoardSync(): Promise<SyncResult> {
 
   const { removed: jobsRemovedDuplicates } = await cleanupDuplicateBoardJobs();
 
-  await markGlobalStaleJobs();
+  await pruneClosedJobs();
 
   const result: SyncResult = {
     searchType: "boards",

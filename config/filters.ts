@@ -90,8 +90,12 @@ export const filters = {
   linkedInRemoteRoles,
   /** Only include listings posted within this many days. */
   maxAgeDays: 30,
-  /** Mark as possibly closed when not seen in sync and at least this old. */
-  staleAfterDays: 30,
+  /**
+   * A listing gone from this many consecutive syncs is treated as closed and
+   * deleted — unless it has a manual status (applied / expired / etc.), which
+   * we keep as a record and flag as possibly closed instead.
+   */
+  removeAfterMissedSyncs: 5,
   /**
    * Per-source posted-date policy. Default keeps unknown dates (recall-first).
    * Set allowUnknownDate: false only for sources that always provide dates.

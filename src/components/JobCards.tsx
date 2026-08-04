@@ -2,7 +2,7 @@
 
 import type { Job, JobStatus } from "@/types";
 import { WORK_MODE_LABELS } from "@/types";
-import { isJobPostedToday } from "@/lib/job-dates";
+import { isJobPostedToday, jobPostedAgeDays } from "@/lib/job-dates";
 import { formatDisplayLocation } from "@/lib/location";
 import { StatusDropdown } from "./StatusDropdown";
 import { PostedTodayBadge } from "./PostedTodayBadge";
@@ -74,7 +74,7 @@ export function JobCards({
             <p className="mb-3 text-xs text-gray-500">
               {formatDisplayLocation(job.location)} ·{" "}
               {WORK_MODE_LABELS[job.workMode]} ·{" "}
-              {formatLatency(job.latencyDays)} · {job.sourceName}
+              {formatLatency(jobPostedAgeDays(job))} · {job.sourceName}
             </p>
             <div onClick={(e) => e.stopPropagation()}>
               <StatusDropdown

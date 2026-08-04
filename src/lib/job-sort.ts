@@ -1,5 +1,6 @@
 import type { Job, JobStatus, WorkMode } from "@/types";
 import { formatDisplayLocation } from "@/lib/location";
+import { jobPostedAgeDays } from "@/lib/job-dates";
 
 export type JobSortKey =
   | "status"
@@ -72,7 +73,7 @@ export function sortJobList(
         result = WORK_MODE_ORDER[a.workMode] - WORK_MODE_ORDER[b.workMode];
         break;
       case "latencyDays":
-        result = compareLatency(a.latencyDays, b.latencyDays);
+        result = compareLatency(jobPostedAgeDays(a), jobPostedAgeDays(b));
         break;
     }
 

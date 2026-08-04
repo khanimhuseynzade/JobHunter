@@ -57,7 +57,9 @@ function applyJobFilters(
     filtered = filtered.filter((j) => j.status !== "skipped");
   }
   if (!options?.showClosed) {
-    filtered = filtered.filter((j) => !j.possiblyClosed);
+    // A closed listing is only ever kept in the DB when the user gave it a
+    // status, so those stay visible; unstatused ones are pruned at sync time.
+    filtered = filtered.filter((j) => !j.possiblyClosed || j.status !== null);
   }
   if (options?.q?.trim()) {
     filtered = filtered.filter((j) => matchesQuery(j, options.q!));

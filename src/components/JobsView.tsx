@@ -34,7 +34,7 @@ const RANGE_ORDER: RangeKey[] = ["7d", "30d", "all"];
 const RANGE_CONFIG: Record<
   RangeKey,
   {
-    days: number | null;
+    days: number;
     rangeLabel: string;
     toggleLabel: string;
     goal: number;
@@ -55,12 +55,15 @@ const RANGE_CONFIG: Record<
     goal: 320,
     periodTarget: "this month's target",
   },
+  // `days: Infinity` makes the cutoff -Infinity, so every job passes the range
+  // filter — an escape hatch for older statused jobs that fall outside 7d/30d.
+  // goal/periodTarget are unused here since the goal bar only renders for 7d.
   all: {
-    days: null,
+    days: Infinity,
     rangeLabel: "all time",
     toggleLabel: "All",
-    goal: 80,
-    periodTarget: "your target",
+    goal: 0,
+    periodTarget: "all-time target",
   },
 };
 
@@ -257,13 +260,17 @@ export function JobsView({
     loadJobs();
   }, [buildJobsParams, loadJobs]);
 
-  // Jobs scoped to the selected range (by firstSeenAt). Shared by the stats
-  // card and the table/cards below so the whole view reflects the range.
+  // Jobs scoped to the selected range strictly by firstSeenAt (when a job was
+  // added). Statused jobs (applied / expired / etc.) age out with the window
+  // just like everything else, so the counts reflect the period instead of
+  // accumulating every acted-on job forever. Shared by the stats card and the
+  // table/cards below so the whole view reflects the range.
   const rangedJobs = useMemo(() => {
     const { days } = RANGE_CONFIG[range];
-    if (days == null) return jobs;
     const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-    return jobs.filter((job) => new Date(job.firstSeenAt).getTime() >= cutoff);
+    return jobs.filter(
+      (job) => new Date(job.firstSeenAt).getTime() >= cutoff
+    );
   }, [jobs, range]);
 
   // Jobs scoped to the range plus the "Poland only" toggle. Stats, the search

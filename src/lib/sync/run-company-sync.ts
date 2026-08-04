@@ -1,7 +1,7 @@
 import { companies } from "../../../config/companies";
 import { fetchCompanyJobs } from "./fetchers/companies";
 import { cleanupDuplicateBoardJobs } from "./cleanup-duplicates";
-import { markGlobalStaleJobs, upsertSyncJobs, writeSyncLog } from "./upsert";
+import { pruneClosedJobs, upsertSyncJobs, writeSyncLog } from "./upsert";
 import type { SyncResult } from "./types";
 
 export async function runCompanySync(): Promise<SyncResult> {
@@ -35,7 +35,7 @@ export async function runCompanySync(): Promise<SyncResult> {
 
   const { removed: jobsRemovedDuplicates } = await cleanupDuplicateBoardJobs();
 
-  await markGlobalStaleJobs();
+  await pruneClosedJobs();
 
   const result: SyncResult = {
     searchType: "companies",
