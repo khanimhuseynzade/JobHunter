@@ -23,7 +23,14 @@ export interface Job {
   sourceName: string;
   applyUrl: string;
   status: JobStatus | null;
+  /** Missing from a recent sync but may still reappear (missedSyncs 1..threshold-1). */
   possiblyClosed: boolean;
+  /**
+   * Gone past the deletion threshold (missedSyncs >= removeAfterMissedSyncs): the
+   * listing is treated as closed for good. No-status ones are already deleted at
+   * sync time, so on the client this only ever marks statused survivors.
+   */
+  definitelyClosed: boolean;
   firstSeenAt: string;
   lastSeenAt: string;
 }

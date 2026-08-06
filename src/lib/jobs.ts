@@ -7,6 +7,7 @@ import {
   sortJobs,
 } from "@/lib/seed";
 import { dedupeBoardJobsByCompanyRole } from "@/lib/sync/company-role-duplicates";
+import { filters } from "../../config/filters";
 import type { Job, JobStatus, WorkMode } from "@/types";
 
 function rowToJob(row: typeof jobsTable.$inferSelect): Job {
@@ -24,6 +25,9 @@ function rowToJob(row: typeof jobsTable.$inferSelect): Job {
     applyUrl: row.applyUrl,
     status: row.status,
     possiblyClosed: row.possiblyClosed,
+    // Crossed the deletion threshold — closed for good (only statused jobs
+    // survive here; no-status ones are pruned at sync time).
+    definitelyClosed: row.missedSyncs >= filters.removeAfterMissedSyncs,
     firstSeenAt: row.firstSeenAt,
     lastSeenAt: row.lastSeenAt,
   };

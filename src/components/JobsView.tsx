@@ -37,33 +37,24 @@ const RANGE_CONFIG: Record<
     days: number;
     rangeLabel: string;
     toggleLabel: string;
-    goal: number;
-    periodTarget: string;
   }
 > = {
   "7d": {
     days: 7,
     rangeLabel: "last 7 days",
     toggleLabel: "7d",
-    goal: 80,
-    periodTarget: "this week's target",
   },
   "30d": {
     days: 30,
     rangeLabel: "last 30 days",
     toggleLabel: "30d",
-    goal: 320,
-    periodTarget: "this month's target",
   },
   // `days: Infinity` makes the cutoff -Infinity, so every job passes the range
   // filter — an escape hatch for older statused jobs that fall outside 7d/30d.
-  // goal/periodTarget are unused here since the goal bar only renders for 7d.
   all: {
     days: Infinity,
     rangeLabel: "all time",
     toggleLabel: "All",
-    goal: 0,
-    periodTarget: "all-time target",
   },
 };
 
@@ -156,10 +147,13 @@ export function JobsView({
   const buildJobsParams = useCallback(() => {
     const params = new URLSearchParams();
     if (showSkipped) params.set("showSkipped", "true");
-    if (showClosed) params.set("showClosed", "true");
+    // Always pull closed listings into memory; whether they're shown is decided
+    // client-side per range (see rangedJobs), so the "Show closed" toggle no
+    // longer drives the fetch and switching it never triggers a refetch.
+    params.set("showClosed", "true");
     if (debouncedQuery) params.set("q", debouncedQuery);
     return params.toString();
-  }, [showSkipped, showClosed, debouncedQuery]);
+  }, [showSkipped, debouncedQuery]);
 
   const loadJobs = useCallback(async () => {
     const qs = buildJobsParams();
@@ -248,7 +242,8 @@ export function JobsView({
   if (lastFetchedParams.current === null) {
     const params = new URLSearchParams();
     if (initialShowSkipped) params.set("showSkipped", "true");
-    if (initialShowClosed) params.set("showClosed", "true");
+    // Matches buildJobsParams: the server already sent closed listings.
+    params.set("showClosed", "true");
     if (initialQuery) params.set("q", initialQuery);
     lastFetchedParams.current = params.toString();
   }
@@ -268,10 +263,24 @@ export function JobsView({
   const rangedJobs = useMemo(() => {
     const { days } = RANGE_CONFIG[range];
     const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-    return jobs.filter(
-      (job) => new Date(job.firstSeenAt).getTime() >= cutoff
-    );
-  }, [jobs, range]);
+    // Two flavors of "closed":
+    //   • possiblyClosed = missing from a recent sync but may still come back.
+    //   • definitelyClosed = past the deletion threshold, closed for good. The
+    //     only survivors on the client are statused jobs (no-status ones are
+    //     pruned at sync time).
+    // The "All" tab (and the "Show closed" filter) reveals the transient
+    // possiblyClosed listings — dimmed with a badge, until a sync deletes them.
+    // A definitelyClosed listing is hidden ONLY when it has no manual status;
+    // anything you've acted on (applied / expired / etc.) stays as a record even
+    // after it closes for good. 7d/30d are left exactly as before: they hide
+    // no-status possiblyClosed listings and still show statused jobs in-window.
+    const revealClosed = range === "all" || showClosed;
+    return jobs.filter((job) => {
+      if (new Date(job.firstSeenAt).getTime() < cutoff) return false;
+      if (revealClosed) return !(job.definitelyClosed && job.status === null);
+      return !(job.possiblyClosed && job.status === null);
+    });
+  }, [jobs, range, showClosed]);
 
   // Jobs scoped to the range plus the "Poland only" toggle. Stats, the search
   // results, and the "of N" count all derive from this so the header numbers
@@ -297,24 +306,16 @@ export function JobsView({
   const jobStats = useMemo(
     () => ({
       total: scopedJobs.length,
+      // "Open" = still actionable: no status yet and not presumed closed.
+      open: scopedJobs.filter(
+        (job) => job.status === null && !job.possiblyClosed
+      ).length,
       addedToday: scopedJobs.filter((job) => isToday(job.firstSeenAt)).length,
       applied: scopedJobs.filter((job) => job.status === "applied").length,
       rejected: scopedJobs.filter((job) => job.status === "rejected").length,
     }),
     [scopedJobs]
   );
-
-  const goalStats = useMemo(() => {
-    const { goal, periodTarget } = RANGE_CONFIG[range];
-    const submitted = jobStats.applied;
-    const remaining = Math.max(0, goal - submitted);
-    const pct = goal > 0 ? Math.min(100, (submitted / goal) * 100) : 0;
-    const helper =
-      remaining > 0
-        ? `${remaining} more to hit ${periodTarget}`
-        : `You've hit ${periodTarget} — nice work`;
-    return { goal, submitted, remaining, pct, helper };
-  }, [jobStats.applied, range]);
 
   function handleSortChange(key: JobSortKey) {
     if (sortKey === key) {
@@ -391,15 +392,13 @@ export function JobsView({
   return (
     <div>
       <div className="mb-8 rounded-2xl border border-gray-200 bg-white">
-        {/* Header stats block — count, range toggle, email button. Both class
-            strings are written out in full so Tailwind's scanner generates
-            every utility (a `pt-6${...}` template glues the token and drops it). */}
-        <div className={range === "7d" ? "px-6 pt-6" : "px-6 pt-6 pb-6"}>
+        {/* Header stats block — count, range toggle, email button. */}
+        <div className="px-6 py-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <p className="text-sm text-gray-500">Jobs tracked</p>
+              <p className="text-sm text-gray-500">Open jobs</p>
               <p className="mt-1 text-5xl font-bold leading-none tracking-tight text-black">
-                {jobStats.total}
+                {jobStats.open}
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
                 <span>{jobStats.addedToday} added today</span>
@@ -469,43 +468,6 @@ export function JobsView({
             </div>
           </div>
         </div>
-
-        {/* Divider + goal-progress block — weekly target only */}
-        {range === "7d" && (
-          <div
-            className="mx-6 pb-6"
-            style={{
-              marginTop: 12,
-              paddingTop: 12,
-              borderTop: "1px solid #eceeed",
-            }}
-          >
-            <div className="flex items-center justify-between gap-4 text-sm">
-              <span className="text-gray-600">
-                Applications submitted this period
-              </span>
-              <span className="text-gray-500">
-                <strong className="text-black">{goalStats.submitted}</strong> /{" "}
-                {goalStats.goal} goal
-              </span>
-            </div>
-            <div
-              className="mt-2 w-full overflow-hidden"
-              style={{ height: 10, borderRadius: 6, backgroundColor: "#eceeed" }}
-            >
-              <div
-                style={{
-                  width: `${goalStats.pct}%`,
-                  height: "100%",
-                  borderRadius: 6,
-                  backgroundColor: "var(--color-lime-deep)",
-                  transition: "width 200ms ease",
-                }}
-              />
-            </div>
-            <p className="mt-2 text-xs text-gray-400">{goalStats.helper}</p>
-          </div>
-        )}
       </div>
 
       <SuggestionsPanel

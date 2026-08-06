@@ -23,14 +23,16 @@ export default async function JobsPage({
   const showClosed = first(sp.showClosed) === "true";
   const q = first(sp.q)?.trim() || undefined;
 
-  // Fetch jobs and the last-sync timestamp together, with the same filters the
-  // client will apply. Both are server-rendered so the initial count and the
-  // "Last updated" label are already correct on first paint — the client never
-  // refetches them, so nothing flips or flickers after mount. The page is
+  // Fetch jobs and the last-sync timestamp together. We always pull possibly
+  // closed listings (`showClosed: true`) so the client has them in memory, then
+  // decide visibility per range: the "All" tab shows them (dimmed, until they're
+  // deleted at removeAfterMissedSyncs), while 7d/30d hide them unless the user
+  // flips the "Show closed" filter. Both are server-rendered so the initial
+  // count and the "Last updated" label are correct on first paint. The page is
   // force-dynamic, so a reload always reflects the current DB state (which only
   // changes when the twice-daily cron sync runs).
   const [jobs, sync] = await Promise.all([
-    fetchJobs({ showSkipped, showClosed, q }),
+    fetchJobs({ showSkipped, showClosed: true, q }),
     fetchSyncStatus(),
   ]);
 

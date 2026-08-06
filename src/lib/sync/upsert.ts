@@ -124,39 +124,36 @@ export async function writeSyncLog(result: SyncResult): Promise<void> {
 }
 
 /**
- * Delete listings that have gone missing from too many consecutive syncs — they
- * are treated as closed. Listings the user has acted on (any manual status) are
- * never deleted; instead they're flagged as possibly closed so the record
- * survives with a clear "listing gone" marker. Run once per sync, after every
- * source has updated its miss counters.
+ * Reconcile listings against how many recent syncs they've been missing from.
+ *
+ * - Missing from even one sync (missedSyncs >= 1) → flagged possibly closed,
+ *   which hides it from the table by default. If it shows up again a later sync
+ *   resets missedSyncs to 0 and clears the flag, so it reappears as normal.
+ * - Missing from too many consecutive syncs (>= removeAfterMissedSyncs) → treated
+ *   as closed for good and deleted, UNLESS the user acted on it (any manual
+ *   status), in which case it's kept as a record and just stays flagged.
+ *
+ * Run once per sync, after every source has updated its miss counters.
  */
 export async function pruneClosedJobs(): Promise<{ deleted: number }> {
   const db = getDb();
   if (!db) return { deleted: 0 };
 
-  const threshold = filters.removeAfterMissedSyncs;
-
   const deleted = await db
     .delete(jobsTable)
     .where(
-      and(gte(jobsTable.missedSyncs, threshold), isNull(jobsTable.status))
+      and(
+        gte(jobsTable.missedSyncs, filters.removeAfterMissedSyncs),
+        isNull(jobsTable.status)
+      )
     )
     .returning({ id: jobsTable.id });
 
-  // Whatever survived past the threshold has a manual status — keep it but mark
-  // the listing as gone. Below the threshold the listing is still considered
-  // active, so make sure the flag is cleared (e.g. after it reappears).
+  // Anything missing from the latest sync is hidden until it reappears.
   await db
     .update(jobsTable)
     .set({ possiblyClosed: true })
-    .where(gte(jobsTable.missedSyncs, threshold));
-
-  await db
-    .update(jobsTable)
-    .set({ possiblyClosed: false })
-    .where(
-      and(lt(jobsTable.missedSyncs, threshold), eq(jobsTable.possiblyClosed, true))
-    );
+    .where(gte(jobsTable.missedSyncs, 1));
 
   return { deleted: deleted.length };
 }
