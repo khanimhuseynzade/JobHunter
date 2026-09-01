@@ -12,6 +12,7 @@
     "db:push": "drizzle-kit push",
     "db:migrate:expired-status": "tsx scripts/migrate-add-expired-status.ts",
     "db:migrate:error-status": "tsx scripts/migrate-add-error-status.ts",
+    "db:migrate:in-progress-status": "tsx scripts/migrate-add-in-progress-status.ts",
     "db:migrate:statuses": "tsx scripts/migrate-statuses.ts",
     "db:migrate:email-suggestions": "tsx scripts/migrate-add-email-suggestions.ts",
     "db:migrate:missed-syncs": "tsx scripts/migrate-add-missed-syncs.ts",

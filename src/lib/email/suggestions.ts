@@ -143,7 +143,13 @@ export async function fetchCandidateJobs(): Promise<
       role: jobsTable.role,
     })
     .from(jobsTable)
-    .where(inArray(jobsTable.status, ["applied", "reached_out"] as JobStatus[]));
+    .where(
+      inArray(jobsTable.status, [
+        "applied",
+        "reached_out",
+        "in_progress",
+      ] as JobStatus[])
+    );
 
   return rows;
 }

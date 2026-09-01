@@ -12,6 +12,7 @@ export const jobStatusEnum = pgEnum("job_status", [
   "applied",
   "skipped",
   "reached_out",
+  "in_progress",
   "rejected",
   "expired",
   "error",

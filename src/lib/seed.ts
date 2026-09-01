@@ -4,10 +4,11 @@ import { sourcePreferenceScore } from "@/lib/sync/source-preference";
 const STATUS_RANK: Record<JobStatus, number> = {
   applied: 1,
   reached_out: 2,
-  rejected: 3,
-  expired: 4,
-  error: 5,
-  skipped: 6,
+  in_progress: 3,
+  rejected: 4,
+  expired: 5,
+  error: 6,
+  skipped: 7,
 };
 
 function statusRank(status: JobStatus | null): number {

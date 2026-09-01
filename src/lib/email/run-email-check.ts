@@ -18,14 +18,45 @@ function normalizeCompany(name: string): string {
     .trim();
 }
 
-/** Keep only emails that plausibly mention one of the candidate companies. */
+const HIRING_SIGNAL =
+  /interview|application|applied|reject|unfortunately|next steps|\boffer\b|recruit|hiring|thank you for applying|not moving forward|assessment|assignment|screening|shortlist|we received your/i;
+
+function matchingCandidateNeedles(
+  email: EmailMessage,
+  companies: string[]
+): string[] {
+  const fromSubject = `${email.from} ${email.subject}`.toLowerCase();
+  const body = `${email.body || email.snippet}`.toLowerCase();
+  const bodyHasHiringSignal = HIRING_SIGNAL.test(
+    `${email.subject} ${email.snippet} ${email.body}`
+  );
+
+  return companies.filter((c) => {
+    if (c.length < 3) return false;
+    if (fromSubject.includes(c)) return true;
+    return bodyHasHiringSignal && body.includes(c);
+  });
+}
+
+/** Keep emails that mention a candidate company in From/Subject, or in the body with a hiring signal. */
 function emailMentionsCandidate(
   email: EmailMessage,
   companies: string[]
 ): boolean {
-  const haystack =
-    `${email.from} ${email.subject} ${email.body || email.snippet}`.toLowerCase();
-  return companies.some((c) => c.length >= 3 && haystack.includes(c));
+  return matchingCandidateNeedles(email, companies).length > 0;
+}
+
+function candidatesForEmail<T extends { company: string }>(
+  email: EmailMessage,
+  candidates: T[]
+): T[] {
+  const needles = new Set(
+    matchingCandidateNeedles(
+      email,
+      candidates.map((c) => normalizeCompany(c.company))
+    )
+  );
+  return candidates.filter((c) => needles.has(normalizeCompany(c.company)));
 }
 
 export interface EmailCheckResult {
@@ -38,6 +69,25 @@ export interface EmailCheckResult {
 }
 
 const MIN_CONFIDENCE = 55;
+const CLASSIFY_GAP_MS = 12_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function retryAfterMs(err: unknown): number | null {
+  if (err && typeof err === "object" && "responseHeaders" in err) {
+    const headers = (err as { responseHeaders?: Record<string, string> })
+      .responseHeaders;
+    const sec = Number(headers?.["retry-after"]);
+    if (Number.isFinite(sec) && sec > 0) return Math.min(sec, 90) * 1000;
+  }
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/rate_limit|tokens per minute|Request too large|429/i.test(msg)) {
+    return 45_000;
+  }
+  return null;
+}
 
 export async function runEmailCheck(): Promise<EmailCheckResult> {
   if (!hasGmailConfig()) {
@@ -54,7 +104,7 @@ export async function runEmailCheck(): Promise<EmailCheckResult> {
 
   if (candidates.length === 0) {
     return {
-      skipped: "No applied/reached-out jobs to match against",
+      skipped: "No applied/reached-out/in-progress jobs to match against",
       messagesScanned: 0,
       messagesNew: 0,
       suggestionsCreated: 0,
@@ -65,10 +115,11 @@ export async function runEmailCheck(): Promise<EmailCheckResult> {
   const query =
     process.env.EMAIL_LOOKBACK ||
     "newer_than:2d -category:promotions -category:social";
+  const maxResults = Number(process.env.EMAIL_MAX_RESULTS) || 40;
 
   let messages;
   try {
-    messages = await listRecentMessages(query);
+    messages = await listRecentMessages(query, maxResults);
   } catch (err) {
     return {
       messagesScanned: 0,
@@ -89,10 +140,24 @@ export async function runEmailCheck(): Promise<EmailCheckResult> {
   let suggestionsCreated = 0;
   const errors: string[] = [];
 
-  for (const email of relevant) {
+  for (const [index, email] of relevant.entries()) {
+    const matched = candidatesForEmail(email, candidates);
+    if (matched.length === 0) continue;
+
+    if (index > 0) await sleep(CLASSIFY_GAP_MS);
+
     let result;
     try {
-      result = await classifyEmail(email, candidates);
+      for (let attempt = 0; ; attempt++) {
+        try {
+          result = await classifyEmail(email, matched);
+          break;
+        } catch (err) {
+          const wait = attempt < 3 ? retryAfterMs(err) : null;
+          if (wait == null) throw err;
+          await sleep(wait);
+        }
+      }
     } catch (err) {
       // Classification failed (rate limit, timeout, etc.). Don't record the
       // message as seen so it is retried on the next run.

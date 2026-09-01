@@ -2,6 +2,7 @@ export type JobStatus =
   | "applied"
   | "skipped"
   | "reached_out"
+  | "in_progress"
   | "rejected"
   | "expired"
   | "error";
@@ -39,6 +40,7 @@ export const STATUS_LABELS: Record<JobStatus, string> = {
   applied: "Applied",
   skipped: "Skipped",
   reached_out: "Reached out",
+  in_progress: "In progress",
   rejected: "Rejected",
   expired: "Expired",
   error: "Error",

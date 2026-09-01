@@ -8,6 +8,7 @@ type JobStatus =
   | "applied"
   | "skipped"
   | "reached_out"
+  | "in_progress"
   | "rejected"
   | "expired"
   | "error";

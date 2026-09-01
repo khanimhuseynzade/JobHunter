@@ -97,15 +97,25 @@ export async function listRecentMessages(
 ): Promise<EmailMessage[]> {
   const gmail = getGmailClient();
 
-  const list = await gmail.users.messages.list({
-    userId: "me",
-    q: query,
-    maxResults,
-  });
+  const ids: string[] = [];
+  let pageToken: string | undefined;
 
-  const ids = (list.data.messages ?? [])
-    .map((m) => m.id)
-    .filter((id): id is string => Boolean(id));
+  while (ids.length < maxResults) {
+    const list = await gmail.users.messages.list({
+      userId: "me",
+      q: query,
+      maxResults: Math.min(100, maxResults - ids.length),
+      pageToken,
+    });
+
+    const pageIds = (list.data.messages ?? [])
+      .map((m) => m.id)
+      .filter((id): id is string => Boolean(id));
+
+    ids.push(...pageIds);
+    pageToken = list.data.nextPageToken ?? undefined;
+    if (!pageToken || pageIds.length === 0) break;
+  }
 
   const messages: EmailMessage[] = [];
 

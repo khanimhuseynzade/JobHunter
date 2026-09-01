@@ -79,7 +79,7 @@ export async function classifyEmail(
     "Email:",
     `From: ${email.from}`,
     `Subject: ${email.subject}`,
-    `Body:\n${email.body || email.snippet}`,
+    `Body:\n${(email.body || email.snippet).slice(0, 2000)}`,
   ].join("\n");
 
   try {

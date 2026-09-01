@@ -9,6 +9,7 @@ export const STATUS_CHIP_CLASS: Record<
   applied: "chip-applied",
   skipped: "chip-skipped",
   reached_out: "chip-reached_out",
+  in_progress: "chip-in_progress",
   rejected: "chip-rejected",
   expired: "chip-expired",
   error: "chip-error",

@@ -34,6 +34,12 @@
   --color-dusty-blue-200: #c7d6df;
   --color-dusty-blue-text: #3e5a6c;
 
+  /* Active process — In progress. Warm ochre, distinct from lime (applied) and dusty-blue (reached out) */
+  --color-ochre: #8a6a32;
+  --color-ochre-100: #f4eee0;
+  --color-ochre-200: #dcc9a0;
+  --color-ochre-text: #5c4a22;
+
   /* Muted negative — Rejected. Softer and less saturated than --color-red so it reads as final/closed rather than an active error */
   --color-rose: #7d4d49;
   --color-rose-100: #f3e6e6;
@@ -104,6 +110,12 @@ body {
   background-color: var(--color-dusty-blue-100);
   color: var(--color-dusty-blue-text);
   border: 1px solid var(--color-dusty-blue-200);
+}
+
+.chip-in_progress {
+  background-color: var(--color-ochre-100);
+  color: var(--color-ochre-text);
+  border: 1px solid var(--color-ochre-200);
 }
 
 .chip-rejected {

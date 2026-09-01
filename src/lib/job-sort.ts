@@ -15,10 +15,11 @@ export type SortDirection = "asc" | "desc";
 const STATUS_ORDER: Record<JobStatus, number> = {
   applied: 1,
   reached_out: 2,
-  rejected: 3,
-  expired: 4,
-  error: 5,
-  skipped: 6,
+  in_progress: 3,
+  rejected: 4,
+  expired: 5,
+  error: 6,
+  skipped: 7,
 };
 
 const WORK_MODE_ORDER: Record<WorkMode, number> = {
