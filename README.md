@@ -7,7 +7,7 @@ Personal job board for design roles — synced listings, status triage, and emai
 - **Next.js** — responsive web app (Jobs page)
 - **Neon Postgres** (via Drizzle) — persistent storage
 - **GitHub Actions** — twice-daily board + company sync
-- **Vercel Cron** — daily email check (plus a backup sync schedule)
+- **Vercel Cron** — daily email check
 - **Groq** — LLM that classifies recruiter emails (optional)
 
 ## Local development
@@ -57,15 +57,15 @@ Sync and the email check run on a schedule:
 
 | Endpoint | Schedule (UTC) | Triggered by | What it does |
 |----------|----------------|--------------|--------------|
-| `/api/cron/sync-all` | 08:00 | GitHub Actions (+ Vercel Cron) | All job boards + company career pages |
-| `/api/cron/sync-all` | 13:00 | GitHub Actions (+ Vercel Cron) | All job boards + company career pages |
+| `/api/cron/sync-all` | 08:00 | GitHub Actions | All job boards + company career pages |
+| `/api/cron/sync-all` | 13:00 | GitHub Actions | All job boards + company career pages |
 | `/api/cron/check-email` | 14:00 | Vercel Cron | Reads Gmail, suggests status changes (see below) |
 
 Board sync includes No Fluff Jobs, Just Join IT, Bulldogjob, We Work Remotely, Jobicy, RemoteOK, EU Remote Jobs, and LinkedIn.
 
 ### GitHub Actions (primary sync scheduler)
 
-Vercel Cron is unreliable on the Hobby plan, so `.github/workflows/scheduled-sync.yml` calls `/api/cron/sync-all` at 08:00 and 13:00 UTC. The same schedules are still in `vercel.json` as a backup. Set these in GitHub → **Settings → Secrets and variables → Actions**:
+Vercel Cron is unreliable on the Hobby plan, so `.github/workflows/scheduled-sync.yml` calls `/api/cron/sync-all` at 08:00 and 13:00 UTC. Sync is intentionally *not* also scheduled in `vercel.json`: every extra run counts as a "missed sync" for listings that dropped off a board, so double-scheduling would delete them twice as fast. Set these in GitHub → **Settings → Secrets and variables → Actions**:
 
 | Name | Type | Value |
 |------|------|-------|
@@ -74,6 +74,8 @@ Vercel Cron is unreliable on the Hobby plan, so `.github/workflows/scheduled-syn
 | `PROD_URL` | Variable (optional) | Base URL of your deployment, if it isn't the default in the workflow |
 
 To trigger a sync now: GitHub → **Actions → Scheduled job sync → Run workflow**.
+
+> GitHub disables scheduled workflows after 60 days without repo activity. If syncs stop, re-enable the workflow from the Actions tab.
 
 ### Run sync locally (optional)
 
@@ -371,5 +373,5 @@ JobHunter/
 ├── src/lib/email/      ← Gmail reading + LLM classification
 ├── src/lib/schema.ts   ← Drizzle schema
 ├── scripts/            ← seed, sync, migration, and Gmail auth entrypoints
-└── vercel.json         ← Vercel Cron schedules
+└── vercel.json         ← Vercel Cron schedule (email check)
 ```
