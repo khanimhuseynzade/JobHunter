@@ -1,12 +1,14 @@
 # Board
 
-Personal job board — synced listings, status triage, and markdown notes.
+Personal job board for design roles — synced listings, status triage, and email-driven status suggestions.
 
 ## Stack
 
-- **Next.js** — responsive web app (Jobs + Pages)
-- **Neon Postgres** — persistent storage
-- **Vercel Cron** — daily board + company sync (automatic on deploy)
+- **Next.js** — responsive web app (Jobs page)
+- **Neon Postgres** (via Drizzle) — persistent storage
+- **GitHub Actions** — twice-daily board + company sync
+- **Vercel Cron** — daily email check
+- **Groq** — LLM that classifies recruiter emails (optional)
 
 ## Local development
 
@@ -46,22 +48,34 @@ The app automatically uses Neon when `DATABASE_URL` is set.
 
 1. Push this repo to GitHub
 2. Import the project in [Vercel](https://vercel.com)
-3. Add environment variable: `DATABASE_URL` (same Neon connection string)
+3. Add environment variables: `DATABASE_URL` (same Neon connection string) and `CRON_SECRET` (any long random string — cron routes reject requests without it)
 4. Deploy
 
-That's it — **sync runs automatically every day** after deploy. Vercel Cron hits two endpoints defined in `vercel.json`:
+## 3. Scheduled sync
 
-| Cron | Schedule (UTC) | What it syncs |
-|------|----------------|---------------|
-| `/api/cron/sync-all` | 06:00 | All job boards + company career pages |
-| `/api/cron/sync-all` | 13:00 | All job boards + company career pages (afternoon) |
-| `/api/cron/check-email` | 14:00 | Reads Gmail, suggests status changes (see below) |
+Sync and the email check run on a schedule:
+
+| Endpoint | Schedule (UTC) | Triggered by | What it does |
+|----------|----------------|--------------|--------------|
+| `/api/cron/sync-all` | 08:00 | GitHub Actions | All job boards + company career pages |
+| `/api/cron/sync-all` | 13:00 | GitHub Actions | All job boards + company career pages |
+| `/api/cron/check-email` | 14:00 | Vercel Cron | Reads Gmail, suggests status changes (see below) |
 
 Board sync includes No Fluff Jobs, Just Join IT, Bulldogjob, We Work Remotely, Jobicy, RemoteOK, EU Remote Jobs, and LinkedIn.
 
-Vercel sets `CRON_SECRET` automatically for cron requests. No GitHub Actions setup, no manual runs.
+### GitHub Actions (primary sync scheduler)
 
-To trigger a sync immediately after deploy: Vercel → **Settings → Cron Jobs** → run once, or redeploy.
+Vercel Cron is unreliable on the Hobby plan, so `.github/workflows/scheduled-sync.yml` calls `/api/cron/sync-all` at 08:00 and 13:00 UTC. Sync is intentionally *not* also scheduled in `vercel.json`: every extra run counts as a "missed sync" for listings that dropped off a board, so double-scheduling would delete them twice as fast. Set these in GitHub → **Settings → Secrets and variables → Actions**:
+
+| Name | Type | Value |
+|------|------|-------|
+| `CRON_SECRET` | Secret | Must match `CRON_SECRET` in Vercel Production env |
+| `VERCEL_AUTOMATION_BYPASS_SECRET` | Secret | Vercel → Settings → Deployment Protection → Protection Bypass for Automation (needed when SSO protection is on) |
+| `PROD_URL` | Variable (optional) | Base URL of your deployment, if it isn't the default in the workflow |
+
+To trigger a sync now: GitHub → **Actions → Scheduled job sync → Run workflow**.
+
+> GitHub disables scheduled workflows after 60 days without repo activity. If syncs stop, re-enable the workflow from the Actions tab.
 
 ### Run sync locally (optional)
 
@@ -70,7 +84,7 @@ npm run sync:boards
 npm run sync:companies
 ```
 
-## 3. Email → status suggestions (optional)
+## 4. Email → status suggestions (optional)
 
 Once a day a cron reads your Gmail, uses an LLM to match recruiter emails to jobs
 you've marked **Applied** or **Reached out**, and creates **suggestions** for a
@@ -272,8 +286,9 @@ External keys: `company:{provider}:{slug}:{jobId}` · Source name: `"{Company} c
 ### Upsert rules
 
 - New job → insert with `status: null`, `possiblyClosed: false`
-- Existing job → update metadata + `lastSeenAt`, clear `possiblyClosed`
-- Jobs from same source NOT in current sync → `possiblyClosed: true`
+- Existing job → update metadata + `lastSeenAt`, reset `missedSyncs` to 0, clear `possiblyClosed`
+- Jobs from same source NOT in current sync → `missedSyncs + 1` and `possiblyClosed: true` (hidden by default until seen again)
+- Missed `removeAfterMissedSyncs` (5) syncs in a row → deleted, unless it has a user status
 - **User statuses are never overwritten**
 
 ### Dedup logic
@@ -304,7 +319,7 @@ Dedup runs at fetch time (`dedupeSyncJobs`) and in the DB (`cleanupDuplicateBoar
 
 ## Database schema
 
-**`jobs`:** `id`, `external_key` (unique), `role`, `company`, `location`, `work_mode`, `posted_date`, `latency_days`, `source_type` (board | company), `source_name`, `apply_url`, `status` (applied | skipped | reached_out | rejected | expired | null), `possibly_closed`, `first_seen_at`, `last_seen_at`
+**`jobs`:** `id`, `external_key` (unique), `role`, `company`, `location`, `work_mode`, `posted_date`, `latency_days`, `source_type` (board | company), `source_name`, `apply_url`, `status` (applied | skipped | reached_out | in_progress | rejected | expired | error | null), `possibly_closed`, `missed_syncs`, `first_seen_at`, `last_seen_at`
 
 **`sync_logs`:** `id`, `search_type`, `ran_at`, `jobs_found`, `jobs_new`, `errors`
 
@@ -313,7 +328,8 @@ Dedup runs at fetch time (`dedupeSyncJobs`) and in the DB (`cleanupDuplicateBoar
 ## UI
 
 - **Jobs page** (`/jobs`) — table (desktop) + cards (mobile)
-- **Status triage:** applied, skipped, reached_out, rejected, expired, or empty
+- **Status triage:** Applied, Skipped, Reached out, In progress, Rejected, Expired, Error, or empty
+- **Email suggestions panel** — Accept / Dismiss suggested status changes, plus a "Check email" button
 - **Search** by role, company, location, source; **filter** by work mode
 - **Toggles:** show skipped, show possibly closed
 - **Sort** by status, role, company, work mode, latency
@@ -331,6 +347,8 @@ Dedup runs at fetch time (`dedupeSyncJobs`) and in the DB (`cleanupDuplicateBoar
 | `/api/suggestions` | PATCH | Resolve a suggestion `{ id, action: "accept" \| "dismiss" }` |
 | `/api/check-email` | POST | Manually run the email check now (the "Check email" button) |
 | `/api/cron/sync-all` | GET | Run board + company sync (cron auth via `CRON_SECRET`) |
+| `/api/cron/sync-boards` | GET | Run board sync only (cron auth via `CRON_SECRET`) |
+| `/api/cron/sync-companies` | GET | Run company sync only (cron auth via `CRON_SECRET`) |
 | `/api/cron/check-email` | GET | Read Gmail → create status suggestions (cron auth via `CRON_SECRET`) |
 
 ## Customization
@@ -346,11 +364,14 @@ To adapt for a different role hunt:
 ## Project structure
 
 ```
-Board/
-├── config/           ← FILTERS, BOARDS, TOP COMPANIES
-├── src/app/jobs/     ← Jobs table
-├── src/app/pages/    ← Markdown notes
-├── src/lib/sync/     ← Sync fetchers + upsert logic
-├── scripts/          ← seed + sync entrypoints
-└── vercel.json       ← daily cron schedules
+JobHunter/
+├── .github/workflows/  ← scheduled sync (GitHub Actions)
+├── config/             ← filters, boards, LinkedIn, companies
+├── src/app/jobs/       ← Jobs page
+├── src/app/api/        ← API + cron routes
+├── src/lib/sync/       ← sync fetchers + upsert logic
+├── src/lib/email/      ← Gmail reading + LLM classification
+├── src/lib/schema.ts   ← Drizzle schema
+├── scripts/            ← seed, sync, migration, and Gmail auth entrypoints
+└── vercel.json         ← Vercel Cron schedule (email check)
 ```
